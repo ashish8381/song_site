@@ -23448,6 +23448,7 @@ function W_() {
               className: "scene__img",
               src: "./assets/bg2.mp4",
               poster: "./assets/poster.png",
+              preload: "none",
               autoPlay: !0,
               loop: !0,
               muted: !0,
