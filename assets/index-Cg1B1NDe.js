@@ -20664,10 +20664,7 @@ function Ww() {
 Ww();
 let Aa = null;
 function Bl() {
-  return (
-    Aa || (Aa = Vw(Iy, Ly, { realtime: { params: { eventsPerSecond: 10 } } })),
-    Aa
-  );
+  return window.firebaseRoomClient;
 }
 let Oa = null;
 function Dp() {
