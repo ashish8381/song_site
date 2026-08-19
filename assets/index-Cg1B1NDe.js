@@ -22214,7 +22214,7 @@ function I_() {
   const t = Ys("station", null);
   return typeof t == "string" && t ? t : null;
 }
-function $a() {
+function $a() { window.appConfig = ie;
   const t = Array.isArray(ie.STATIONS) ? ie.STATIONS : [],
     e = Array.isArray(ie.PLAYLIST_IDS) ? ie.PLAYLIST_IDS : [ie.PLAYLIST_IDS],
     n = t.length ? t : e.map((s) => ({ playlist: s })),
@@ -22384,7 +22384,7 @@ function $_(t) {
           if (A || !t.current) return;
           const he = document.createElement("div");
           (t.current.appendChild(he),
-            (B = new F.Player(he, {
+            (window.ytPlayer = B = new F.Player(he, {
               host: "https://www.youtube-nocookie.com",
               playerVars: {
                 listType: "playlist",
