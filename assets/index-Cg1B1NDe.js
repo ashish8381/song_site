@@ -22385,7 +22385,7 @@ function $_(t) {
           const he = document.createElement("div");
           (t.current.appendChild(he),
             (B = new F.Player(he, {
-              host: "https://www.youtube.com",
+              host: "https://www.youtube-nocookie.com",
               playerVars: {
                 listType: "playlist",
                 list: H[0].playlist,
