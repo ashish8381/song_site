@@ -22305,7 +22305,7 @@ function L_(t, e, n) {
           if (!y && ((p += Pi), p >= Kd)) {
             p = 0;
             try {
-              (t.cuePlaylist({ list: g, listType: "playlist" }), (f = !1));
+              ((window.activePlaylistId = g, console.log("[Station Changed] Playlist ID:", g), t.cuePlaylist({ list: g, listType: "playlist" })), (f = !1));
             } catch {
               if (f) {
                 c();
