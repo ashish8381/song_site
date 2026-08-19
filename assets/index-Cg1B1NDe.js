@@ -9224,7 +9224,7 @@ const tt = { viewBox: "0 0 24 24", "aria-hidden": !0, focusable: !1 },
   ie = {
     STATIONS: [
       {
-        name: "monsoon & tea",
+        name: "Monsoon & Tea",
         freq: "98.3",
         playlist: "RDCLAK5uy_nlKphX00YtBNjlGZcmPifGNAPXUSjezNM",
       },
@@ -9269,7 +9269,7 @@ const tt = { viewBox: "0 0 24 24", "aria-hidden": !0, focusable: !1 },
     PRESENCE_ROOM: "baarish-vibe-fm",
     ENABLE_ROOMS: !0,
     ROOM_SYNC_SECONDS: 5,
-    REACTIONS: ["❤️", "🔥", "💃", "😂"],
+    REACTIONS: ["❤️", "🔥", "💃", "😂","😭","💔"],
   },
   Iy = "https://nqfqfxwaiqkmdwwtxcwd.supabase.co",
   Ly = "sb_publishable_WxTUHQb5IQFFyus7ZJyXMQ_0_t_QuaO",
