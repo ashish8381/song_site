@@ -207,17 +207,17 @@ class PlaylistUI {
     tracksEl.innerHTML = `<div class="playlist-loading">Opening playlist...</div>`;
 
     const stationName = this.getActiveStationName();
+    const currentPid = this.getStationPlaylistId();
     titleEl.innerText = stationName || "Playlist";
 
-    // Invalidate cache whenever station changes
-    if (this.cachedStationName !== stationName) {
-      this.cachedStationName = stationName;
+    // If the playlist ID is different, clear the songs list
+    if (this.cachedPlaylistId !== currentPid) {
+      this.cachedPlaylistId = currentPid;
       this.cachedTracks = [];
       this.usingPlayerOrder = false;
     }
 
     if (this.cachedTracks.length === 0) {
-
       // Step 1: check API key
       const key = this.getActiveApiKey();
       if (!key) {
@@ -229,60 +229,15 @@ class PlaylistUI {
         return;
       }
 
-      // Step 2: check player
-      if (!window.ytPlayer) {
-        tracksEl.innerHTML = `<div class="playlist-loading">⏳ YouTube player not ready yet.<br/>Wait a moment and try again.</div>`;
-        return;
-      }
-
-      // Step 3: try getPlaylist() — works for PL... playlists
-      // If station just changed, wait for the player to load the new playlist
-      // (ytPlayer.getPlaylist() still returns the OLD station's IDs briefly after cuePlaylist)
-      subtitleEl.innerText = "Waiting for station to load...";
-
-      let playerIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
-      const stationPlaylistId = this.getStationPlaylistId();
-
-      if (playerIds.length > 0 && stationPlaylistId) {
-        // Poll until the player's first video ID belongs to the new station's playlist
-        // or until 2.5 seconds pass (fallback)
-        const deadline = Date.now() + 2500;
-        while (Date.now() < deadline) {
-          // Check current video: if it matches an ID in the new station's playlist,
-          // the player has switched. We verify by checking getVideoData against the station.
-          const freshIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
-          // A heuristic: if the playlist length changed, or first ID changed, player has switched
-          if (freshIds.length !== playerIds.length || freshIds[0] !== playerIds[0]) {
-            playerIds = freshIds;
-            break;
-          }
-          // Also check: if the current video is from a different set, we're good
-          await new Promise(r => setTimeout(r, 200));
-          playerIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
-        }
-      }
-
-      console.log("[PlaylistUI] ytPlayer.getPlaylist():", playerIds.length, "IDs");
-
-      if (playerIds.length > 0) {
-        subtitleEl.innerText = `Fetching ${playerIds.length} track details...`;
-        this.cachedTracks = await this.fetchByVideoIds(playerIds);
-        this.usingPlayerOrder = true;
-        console.log("[PlaylistUI] Strategy 1 result:", this.cachedTracks.length, "tracks");
-      }
-
-      // Step 4: fallback to playlistItems API for radio mixes
-      if (this.cachedTracks.length === 0) {
-        const pid = this.getStationPlaylistId();
-        console.log("[PlaylistUI] Station playlist ID:", pid);
-        if (pid) {
-          subtitleEl.innerText = "Fetching playlist from YouTube API...";
-          this.cachedTracks = await this.fetchByPlaylistId(pid);
-          this.usingPlayerOrder = false;
-          console.log("[PlaylistUI] Strategy 2 result:", this.cachedTracks.length, "tracks");
-        } else {
-          console.warn("[PlaylistUI] No playlist ID found in appConfig. appConfig:", window.appConfig);
-        }
+      // Step 2: Fetch directly from Playlist API using the station's playlist ID
+      console.log("[PlaylistUI] Fetching tracks for playlist ID:", currentPid);
+      if (currentPid) {
+        subtitleEl.innerText = "Fetching playlist from YouTube API...";
+        this.cachedTracks = await this.fetchByPlaylistId(currentPid);
+        this.usingPlayerOrder = false; // Always use loadVideoById since order isn't shuffled
+        console.log("[PlaylistUI] API result:", this.cachedTracks.length, "tracks");
+      } else {
+        console.warn("[PlaylistUI] No playlist ID found in appConfig. appConfig:", window.appConfig);
       }
     }
 
