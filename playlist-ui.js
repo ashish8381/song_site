@@ -22,6 +22,26 @@ class PlaylistUI {
         lastPid = currentPid;
         const name = this.getActiveStationName();
         console.log(`[Station Watcher] Now playing: "${name}" | Playlist ID: ${currentPid}`);
+
+        // Pre-fetch the playlist in the background for instant UI load
+        if (this.apiKeys) {
+          console.log("[Station Watcher] Pre-fetching tracks in background...");
+          this.fetchByPlaylistId(currentPid).then(tracks => {
+            // Only cache if the user hasn't changed stations again while we were fetching
+            if (this.getStationPlaylistId() === currentPid) {
+              this.cachedPlaylistId = currentPid;
+              this.cachedTracks = tracks;
+              this.usingPlayerOrder = false;
+              console.log(`[Station Watcher] Pre-fetch complete: ${tracks.length} tracks ready.`);
+              
+              // If modal is open right now, refresh it to show the new tracks
+              const overlay = document.getElementById("playlistModalOverlay");
+              if (overlay && overlay.classList.contains("active")) {
+                this.openModal();
+              }
+            }
+          }).catch(e => console.error("Pre-fetch failed", e));
+        }
       }
     }, 1000);
   }
