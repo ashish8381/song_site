@@ -1,7 +1,7 @@
 class PlaylistUI {
   constructor() {
     this.apiKeys = null;
-    this.currentPlaylistId = null;
+    this.currentVideoIds = [];
     this.tracks = [];
     this.init();
   }
@@ -26,15 +26,7 @@ class PlaylistUI {
     return this.apiKeys.primary || this.apiKeys.fallback || this.apiKeys.fallback2;
   }
 
-  getCurrentStation() {
-    if (!window.appConfig) return null;
-    const nameEl = document.querySelector(".tuner__name");
-    if (!nameEl) return null;
-    const name = nameEl.innerText.trim().toLowerCase();
-    return window.appConfig.STATIONS.find(s => s.name.toLowerCase() === name);
-  }
-
-  async fetchPlaylistTracks(playlistId) {
+  async fetchTracksByVideoIds(videoIds) {
     const key = this.getActiveApiKey();
     if (!key || key.includes("REPLACE_ME")) {
       alert("YouTube API Key is missing or invalid in Firebase!");
@@ -42,17 +34,15 @@ class PlaylistUI {
     }
 
     let allItems = [];
-    let nextPageToken = "";
     
     try {
       const subtitle = document.getElementById("playlistSubtitle");
       if (subtitle) subtitle.innerText = "Fetching tracks (this might take a moment)...";
       
-      do {
-        let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${key}`;
-        if (nextPageToken) {
-          url += `&pageToken=${nextPageToken}`;
-        }
+      // Fetch in chunks of 50
+      for (let i = 0; i < videoIds.length; i += 50) {
+        const chunk = videoIds.slice(i, i + 50).join(",");
+        const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${chunk}&key=${key}`;
         
         const res = await fetch(url);
         const data = await res.json();
@@ -63,10 +53,25 @@ class PlaylistUI {
           break;
         }
         
-        allItems = allItems.concat(data.items || []);
-        nextPageToken = data.nextPageToken;
+        // We need to preserve the exact order of videoIds
+        // YouTube API doesn't guarantee order, so we map them back
+        const idToItem = {};
+        if (data.items) {
+          data.items.forEach(item => {
+            idToItem[item.id] = item;
+          });
+        }
         
-      } while (nextPageToken && allItems.length < 500);
+        const chunkIds = videoIds.slice(i, i + 50);
+        chunkIds.forEach(id => {
+          if (idToItem[id]) {
+            allItems.push(idToItem[id]);
+          } else {
+            // fallback if video was deleted/hidden but in playlist
+            allItems.push({ snippet: { title: "Unknown Track", channelTitle: "", thumbnails: {} } });
+          }
+        });
+      }
 
       return allItems;
     } catch (e) {
@@ -292,25 +297,30 @@ class PlaylistUI {
   }
 
   async openModal() {
-    const overlay = document.getElementById("playlistModalOverlay");
-    overlay.classList.add("active");
-
-    const station = this.getCurrentStation();
-    if (!station) {
-      document.getElementById("playlistSubtitle").innerText = "No active station found.";
+    if (!window.ytPlayer || !window.ytPlayer.getPlaylist) {
+      alert("YouTube player is not ready yet!");
       return;
     }
 
-    document.getElementById("playlistTitle").innerText = station.name + " Playlist";
+    const overlay = document.getElementById("playlistModalOverlay");
+    overlay.classList.add("active");
+
+    const videoIds = window.ytPlayer.getPlaylist() || [];
+    if (videoIds.length === 0) {
+      document.getElementById("playlistSubtitle").innerText = "No playlist active in player.";
+      return;
+    }
+
     document.getElementById("playlistSubtitle").innerText = "Fetching tracks...";
     document.getElementById("playlistSearch").value = "";
     
     const tracksContainer = document.getElementById("playlistTracks");
     tracksContainer.innerHTML = "";
 
-    if (this.currentPlaylistId !== station.playlist || this.tracks.length === 0) {
-      this.currentPlaylistId = station.playlist;
-      this.tracks = await this.fetchPlaylistTracks(station.playlist);
+    const videoIdsStr = videoIds.join(",");
+    if (this.currentVideoIds.join(",") !== videoIdsStr || this.tracks.length === 0) {
+      this.currentVideoIds = videoIds;
+      this.tracks = await this.fetchTracksByVideoIds(videoIds);
     }
 
     if (this.tracks.length === 0) {
@@ -320,7 +330,7 @@ class PlaylistUI {
 
     document.getElementById("playlistSubtitle").innerText = `${this.tracks.length} tracks`;
 
-    const currentIndex = (window.ytPlayer && window.ytPlayer.getPlaylistIndex) ? window.ytPlayer.getPlaylistIndex() : -1;
+    const currentIndex = window.ytPlayer.getPlaylistIndex();
 
     this.tracks.forEach((track, index) => {
       const item = document.createElement("div");
@@ -329,9 +339,9 @@ class PlaylistUI {
         item.classList.add("active-track");
       }
       
-      const thumb = track.snippet.thumbnails?.default?.url || "";
-      const title = track.snippet.title;
-      const author = track.snippet.videoOwnerChannelTitle || "";
+      const thumb = track.snippet?.thumbnails?.default?.url || "";
+      const title = track.snippet?.title || "Unknown Track";
+      const author = track.snippet?.channelTitle || track.snippet?.videoOwnerChannelTitle || "";
 
       item.innerHTML = `
         <div class="track-index">${index + 1}</div>
@@ -347,8 +357,6 @@ class PlaylistUI {
         if (window.ytPlayer && window.ytPlayer.playVideoAt) {
           window.ytPlayer.playVideoAt(index);
           this.closeModal();
-        } else {
-          alert("YouTube Player is not ready yet!");
         }
       };
 
