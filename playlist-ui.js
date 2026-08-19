@@ -11,6 +11,20 @@ class PlaylistUI {
     await this.fetchKeys();
     this.injectStyles();
     this.injectButton();
+    this.startStationWatcher();
+  }
+
+  startStationWatcher() {
+    let lastStation = null;
+    // Check every second to see if the station name in the DOM has changed
+    setInterval(() => {
+      const currentStation = this.getActiveStationName();
+      if (currentStation && currentStation !== lastStation) {
+        lastStation = currentStation;
+        const pid = this.getStationPlaylistId();
+        console.log(`[Station Changed] Name: "${currentStation}" | Playlist ID: ${pid}`);
+      }
+    }, 1000);
   }
 
   async fetchKeys() {
