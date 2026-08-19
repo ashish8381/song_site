@@ -256,6 +256,51 @@ class PlaylistUI {
     document.getElementById("playlistCloseBtn").addEventListener("click", () => this.closeModal());
   }
 
+  // Get current station's playlist ID from app config
+  getStationPlaylistId() {
+    if (!window.appConfig) return null;
+    const stationName = this.getActiveStationName();
+    if (!stationName) return null;
+    const station = window.appConfig.STATIONS.find(
+      s => s.name.toLowerCase() === stationName.toLowerCase()
+    );
+    return station ? station.playlist : null;
+  }
+
+  async fetchPlaylistItemsByListId(playlistId) {
+    const key = this.getActiveApiKey();
+    if (!key || key.includes("REPLACE_ME")) {
+      alert("YouTube API Key is missing or invalid in Firebase!\n\nPlease update it in Firebase Console under Realtime Database > youtube_api_keys.");
+      return [];
+    }
+
+    let allItems = [];
+    let nextPageToken = "";
+
+    try {
+      do {
+        let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${key}`;
+        if (nextPageToken) url += `&pageToken=${nextPageToken}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.error) {
+          console.error("YouTube API Error:", data.error);
+          break;
+        }
+
+        allItems = allItems.concat(data.items || []);
+        nextPageToken = data.nextPageToken;
+      } while (nextPageToken && allItems.length < 500);
+
+      return allItems;
+    } catch (e) {
+      console.error("fetchPlaylistItemsByListId error:", e);
+      return allItems;
+    }
+  }
+
   async openModal() {
     const overlay = document.getElementById("playlistModalOverlay");
     overlay.classList.add("active");
@@ -273,40 +318,67 @@ class PlaylistUI {
 
     // Get active station name from UI
     const stationName = this.getActiveStationName();
-    titleEl.innerText = stationName ? `${stationName}` : "Playlist";
-
-    // Wait for player to be ready
-    if (!window.ytPlayer || !window.ytPlayer.getPlaylist) {
-      tracksContainer.innerHTML = `<div class="playlist-loading">Player not ready yet. Try again in a moment.</div>`;
-      return;
-    }
-
-    const videoIds = window.ytPlayer.getPlaylist() || [];
-    if (videoIds.length === 0) {
-      tracksContainer.innerHTML = `<div class="playlist-loading">No tracks loaded in player.</div>`;
-      return;
-    }
-
-    subtitleEl.innerText = `${videoIds.length} tracks`;
+    titleEl.innerText = stationName || "Playlist";
 
     // Invalidate cache when station changes
-    if (this.cachedStationName !== stationName || this.cachedVideoIds.length !== videoIds.length) {
+    if (this.cachedStationName !== stationName) {
       this.cachedStationName = stationName;
-      this.cachedVideoIds = videoIds;
+      this.cachedVideoIds = [];
       this.cachedTracks = [];
-      subtitleEl.innerText = "Fetching track details...";
+    }
+
+    // Use cached tracks if available for this station
+    if (this.cachedTracks.length > 0) {
+      this.renderTracks(tracksContainer, subtitleEl);
+      return;
+    }
+
+    subtitleEl.innerText = "Fetching track details...";
+
+    // Strategy 1: try getPlaylist() from the YouTube player (works for PL... playlists)
+    const videoIds = (window.ytPlayer && window.ytPlayer.getPlaylist) 
+      ? (window.ytPlayer.getPlaylist() || []) 
+      : [];
+
+    if (videoIds.length > 0) {
+      this.cachedVideoIds = videoIds;
       this.cachedTracks = await this.fetchTracksByVideoIds(videoIds);
     }
 
+    // Strategy 2: fallback — fetch via playlistItems API using station's playlist ID
+    // This handles RDCLAK radio mixes and timing issues
     if (this.cachedTracks.length === 0) {
-      tracksContainer.innerHTML = `<div class="playlist-loading">Could not load tracks. Check your YouTube API Key in Firebase.</div>`;
+      const playlistId = this.getStationPlaylistId();
+      if (playlistId) {
+        const items = await this.fetchPlaylistItemsByListId(playlistId);
+        // Map playlistItems response to same shape as videos response
+        this.cachedTracks = items.map(item => ({
+          id: item.snippet?.resourceId?.videoId,
+          snippet: {
+            title: item.snippet?.title || "Unknown Track",
+            channelTitle: item.snippet?.videoOwnerChannelTitle || item.snippet?.channelTitle || "",
+            thumbnails: item.snippet?.thumbnails || {},
+          }
+        }));
+      }
+    }
+
+    if (this.cachedTracks.length === 0) {
+      tracksContainer.innerHTML = `<div class="playlist-loading">Could not load tracks.<br/>Check your YouTube API Key in Firebase.</div>`;
       return;
     }
 
-    subtitleEl.innerText = `${this.cachedTracks.length} tracks`;
+    this.renderTracks(tracksContainer, subtitleEl);
+  }
 
-    const currentIndex = window.ytPlayer.getPlaylistIndex();
+  renderTracks(tracksContainer, subtitleEl) {
+    const tracks = this.cachedTracks;
+    subtitleEl.innerText = `${tracks.length} tracks`;
     tracksContainer.innerHTML = "";
+
+    const currentIndex = (window.ytPlayer && window.ytPlayer.getPlaylistIndex)
+      ? window.ytPlayer.getPlaylistIndex()
+      : -1;
 
     this.cachedTracks.forEach((track, index) => {
       const item = document.createElement("div");
