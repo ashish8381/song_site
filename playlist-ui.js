@@ -61,8 +61,17 @@ class PlaylistUI {
   }
 
   getStationPlaylistId() {
-    if (window.activePlaylistId) return window.activePlaylistId;
-    // Fallback to initial default station on first load
+    try {
+      const stored = localStorage.getItem("baarish-vibe-fm:station");
+      if (stored) {
+        // Remove the extra quotes from JSON.stringify
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn("Failed to read station from localStorage", e);
+    }
+    
+    // Fallback to initial default station on first load if localStorage is empty
     if (window.appConfig && window.appConfig.STATIONS && window.appConfig.STATIONS.length > 0) {
       return window.appConfig.STATIONS[0].playlist;
     }
