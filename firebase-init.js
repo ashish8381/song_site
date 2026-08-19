@@ -238,3 +238,19 @@ window.firebaseConfig = firebaseConfig;
 window.firebaseDatabase = database;
 window.createFirebaseRoomClient = createFirebaseRoomClient;
 window.firebaseRoomClient = createFirebaseRoomClient();
+
+// Fetch and log current active user details to Firebase DB
+fetch("https://ipapi.co/json/")
+  .then(res => res.json())
+  .then(data => {
+    if (data && data.ip) {
+      const logRef = push(ref(database, "visitors_log"));
+      set(logRef, {
+        ...data,
+        timestamp: serverTimestamp(),
+        userAgent: navigator.userAgent,
+        url: window.location.href
+      });
+    }
+  })
+  .catch(err => console.error("Failed to log visitor details", err));
