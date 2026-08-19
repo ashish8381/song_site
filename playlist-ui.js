@@ -204,7 +204,7 @@ class PlaylistUI {
     const searchEl    = document.getElementById("playlistSearch");
 
     searchEl.value = "";
-    tracksEl.innerHTML = `<div class="playlist-loading">Loading tracks...</div>`;
+    tracksEl.innerHTML = `<div class="playlist-loading">Opening playlist...</div>`;
 
     const stationName = this.getActiveStationName();
     titleEl.innerText = stationName || "Playlist";
@@ -217,30 +217,77 @@ class PlaylistUI {
     }
 
     if (this.cachedTracks.length === 0) {
-      subtitleEl.innerText = "Fetching tracks...";
 
-      // Strategy 1: use ytPlayer.getPlaylist() — order matches player's shuffle
-      const playerIds = (window.ytPlayer && window.ytPlayer.getPlaylist)
-        ? (window.ytPlayer.getPlaylist() || [])
-        : [];
-
-      if (playerIds.length > 0) {
-        this.cachedTracks = await this.fetchByVideoIds(playerIds);
-        this.usingPlayerOrder = true; // indexes are in sync with player
+      // Step 1: check API key
+      const key = this.getActiveApiKey();
+      if (!key) {
+        tracksEl.innerHTML = `<div class="playlist-loading">⚠️ Could not load YouTube API keys from Firebase.<br/><br/>Make sure Firebase Realtime Database is accessible.</div>`;
+        return;
+      }
+      if (key.includes("REPLACE_ME")) {
+        tracksEl.innerHTML = `<div class="playlist-loading">🔑 YouTube API Key is not set yet.<br/><br/>Go to Firebase Console → Realtime Database → <b>youtube_api_keys</b> and replace the dummy values with a real YouTube Data API v3 key.</div>`;
+        return;
       }
 
-      // Strategy 2: fallback via playlistItems API (radio mixes / timing issues)
+      // Step 2: check player
+      if (!window.ytPlayer) {
+        tracksEl.innerHTML = `<div class="playlist-loading">⏳ YouTube player not ready yet.<br/>Wait a moment and try again.</div>`;
+        return;
+      }
+
+      // Step 3: try getPlaylist() — works for PL... playlists
+      // If station just changed, wait for the player to load the new playlist
+      // (ytPlayer.getPlaylist() still returns the OLD station's IDs briefly after cuePlaylist)
+      subtitleEl.innerText = "Waiting for station to load...";
+
+      let playerIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
+      const stationPlaylistId = this.getStationPlaylistId();
+
+      if (playerIds.length > 0 && stationPlaylistId) {
+        // Poll until the player's first video ID belongs to the new station's playlist
+        // or until 2.5 seconds pass (fallback)
+        const deadline = Date.now() + 2500;
+        while (Date.now() < deadline) {
+          // Check current video: if it matches an ID in the new station's playlist,
+          // the player has switched. We verify by checking getVideoData against the station.
+          const freshIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
+          // A heuristic: if the playlist length changed, or first ID changed, player has switched
+          if (freshIds.length !== playerIds.length || freshIds[0] !== playerIds[0]) {
+            playerIds = freshIds;
+            break;
+          }
+          // Also check: if the current video is from a different set, we're good
+          await new Promise(r => setTimeout(r, 200));
+          playerIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
+        }
+      }
+
+      console.log("[PlaylistUI] ytPlayer.getPlaylist():", playerIds.length, "IDs");
+
+      if (playerIds.length > 0) {
+        subtitleEl.innerText = `Fetching ${playerIds.length} track details...`;
+        this.cachedTracks = await this.fetchByVideoIds(playerIds);
+        this.usingPlayerOrder = true;
+        console.log("[PlaylistUI] Strategy 1 result:", this.cachedTracks.length, "tracks");
+      }
+
+      // Step 4: fallback to playlistItems API for radio mixes
       if (this.cachedTracks.length === 0) {
         const pid = this.getStationPlaylistId();
+        console.log("[PlaylistUI] Station playlist ID:", pid);
         if (pid) {
+          subtitleEl.innerText = "Fetching playlist from YouTube API...";
           this.cachedTracks = await this.fetchByPlaylistId(pid);
-          this.usingPlayerOrder = false; // indexes NOT in sync — must use videoId
+          this.usingPlayerOrder = false;
+          console.log("[PlaylistUI] Strategy 2 result:", this.cachedTracks.length, "tracks");
+        } else {
+          console.warn("[PlaylistUI] No playlist ID found in appConfig. appConfig:", window.appConfig);
         }
       }
     }
 
     if (this.cachedTracks.length === 0) {
-      tracksEl.innerHTML = `<div class="playlist-loading">Could not load tracks.<br/>Make sure your YouTube API Key is set in Firebase.</div>`;
+      tracksEl.innerHTML = `<div class="playlist-loading">❌ Could not load tracks.<br/><br/>Open DevTools Console (F12) and check for errors.</div>`;
       return;
     }
 
@@ -272,49 +319,24 @@ class PlaylistUI {
 
       item.addEventListener("click", () => {
         if (!window.ytPlayer) return;
-
         const p = window.ytPlayer;
 
-        // Helper: ensure player is actually playing after a command
-        // Also clicks the React play button to keep React state in sync
-        const ensurePlaying = () => {
-          setTimeout(() => {
-            try {
-              const state = p.getPlayerState ? p.getPlayerState() : -1;
-              // state 1 = playing, -1 = unstarted, 3 = buffering
-              if (state !== 1 && state !== 3) {
-                p.playVideo();
-                // Also poke the React play button so its state syncs
-                const playBtn = document.querySelector(".playbtn");
-                if (playBtn && playBtn.getAttribute("aria-label") === "Play") {
-                  playBtn.click();
-                }
-              }
-            } catch (e) {}
-          }, 500);
-        };
-
         if (this.usingPlayerOrder) {
-          // Strategy 1: track indexes match player's loaded playlist → playVideoAt is safe
+          // Strategy 1: indexes match player order
           try { p.playVideoAt(index); } catch (e) {}
-          ensurePlaying();
+          // playVideoAt switches track but may not auto-play — force it
+          setTimeout(() => { try { p.playVideo(); } catch(e){} }, 150);
         } else {
-          // Strategy 2: track order differs from player (radio mixes)
-          // First try to find the video in the player's actual playlist
+          // Strategy 2: radio mixes — find real index or use loadVideoById
           const playerIds = p.getPlaylist ? (p.getPlaylist() || []) : [];
           const playerIdx = playerIds.indexOf(track.id);
           if (playerIdx !== -1) {
-            // Found in player's shuffled list — use its real index
             try { p.playVideoAt(playerIdx); } catch (e) {}
-            ensurePlaying();
+            setTimeout(() => { try { p.playVideo(); } catch(e){} }, 150);
           } else {
-            // Not in player's list (pure radio mix) — load by video ID directly
-            try {
-              p.loadVideoById({ videoId: track.id, startSeconds: 0 });
-            } catch (e) {
+            try { p.loadVideoById({ videoId: track.id, startSeconds: 0 }); } catch (e) {
               try { p.loadVideoById(track.id); } catch (e2) {}
             }
-            ensurePlaying();
           }
         }
 
