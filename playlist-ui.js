@@ -1,8 +1,9 @@
 class PlaylistUI {
   constructor() {
     this.apiKeys = null;
-    this.currentVideoIds = [];
-    this.tracks = [];
+    this.cachedStationName = null;
+    this.cachedVideoIds = [];
+    this.cachedTracks = [];
     this.init();
   }
 
@@ -26,50 +27,41 @@ class PlaylistUI {
     return this.apiKeys.primary || this.apiKeys.fallback || this.apiKeys.fallback2;
   }
 
+  // Get the currently tuned station name from the UI
+  getActiveStationName() {
+    const nameEl = document.querySelector(".tuner__name");
+    return nameEl ? nameEl.innerText.trim() : null;
+  }
+
   async fetchTracksByVideoIds(videoIds) {
     const key = this.getActiveApiKey();
     if (!key || key.includes("REPLACE_ME")) {
-      alert("YouTube API Key is missing or invalid in Firebase!");
+      alert("YouTube API Key is missing or invalid in Firebase!\n\nPlease update it in Firebase Console under Realtime Database > youtube_api_keys.");
       return [];
     }
 
     let allItems = [];
-    
+
     try {
-      const subtitle = document.getElementById("playlistSubtitle");
-      if (subtitle) subtitle.innerText = "Fetching tracks (this might take a moment)...";
-      
-      // Fetch in chunks of 50
       for (let i = 0; i < videoIds.length; i += 50) {
         const chunk = videoIds.slice(i, i + 50).join(",");
         const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${chunk}&key=${key}`;
-        
+
         const res = await fetch(url);
         const data = await res.json();
-        
+
         if (data.error) {
           console.error("YouTube API Error:", data.error);
           if (allItems.length === 0) alert("YouTube API Error: " + data.error.message);
           break;
         }
-        
-        // We need to preserve the exact order of videoIds
-        // YouTube API doesn't guarantee order, so we map them back
+
+        // Preserve exact playlist order by mapping API response back to videoIds order
         const idToItem = {};
-        if (data.items) {
-          data.items.forEach(item => {
-            idToItem[item.id] = item;
-          });
-        }
-        
-        const chunkIds = videoIds.slice(i, i + 50);
-        chunkIds.forEach(id => {
-          if (idToItem[id]) {
-            allItems.push(idToItem[id]);
-          } else {
-            // fallback if video was deleted/hidden but in playlist
-            allItems.push({ snippet: { title: "Unknown Track", channelTitle: "", thumbnails: {} } });
-          }
+        (data.items || []).forEach(item => { idToItem[item.id] = item; });
+
+        videoIds.slice(i, i + 50).forEach(id => {
+          allItems.push(idToItem[id] || { id, snippet: { title: "Unknown / Deleted Track", channelTitle: "", thumbnails: {} } });
         });
       }
 
@@ -84,6 +76,7 @@ class PlaylistUI {
     const style = document.createElement("style");
     style.innerHTML = `
       .panel__card { position: relative; }
+
       .playlist-toggle-btn {
         position: absolute;
         top: 24px;
@@ -104,12 +97,13 @@ class PlaylistUI {
         transition: all 0.2s;
       }
       .playlist-toggle-btn:hover {
-        background: rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.15);
         color: white;
       }
+
       .playlist-modal-overlay {
         position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
+        inset: 0;
         background: rgba(0,0,0,0.6);
         z-index: 9999;
         display: none;
@@ -117,9 +111,8 @@ class PlaylistUI {
         justify-content: center;
         backdrop-filter: blur(5px);
       }
-      .playlist-modal-overlay.active {
-        display: flex;
-      }
+      .playlist-modal-overlay.active { display: flex; }
+
       .playlist-modal {
         background: #18181b;
         width: 90%;
@@ -132,26 +125,22 @@ class PlaylistUI {
         color: white;
         box-shadow: 0 10px 40px rgba(0,0,0,0.5);
       }
+
       .playlist-header {
         padding: 20px;
         border-bottom: 1px solid rgba(255,255,255,0.1);
         display: flex;
         flex-direction: column;
+        gap: 12px;
       }
       .playlist-header-top {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
       }
-      .playlist-header h2 {
-        margin: 0;
-        font-size: 20px;
-      }
-      .playlist-header p {
-        margin: 4px 0 12px 0;
-        font-size: 14px;
-        color: rgba(255,255,255,0.5);
-      }
+      .playlist-header h2 { margin: 0; font-size: 20px; }
+      .playlist-header p  { margin: 4px 0 0 0; font-size: 14px; color: rgba(255,255,255,0.5); }
+
       .playlist-search {
         padding: 10px 14px;
         border-radius: 8px;
@@ -164,10 +153,12 @@ class PlaylistUI {
         font-size: 14px;
         outline: none;
       }
+      .playlist-search::placeholder { color: rgba(255,255,255,0.35); }
       .playlist-search:focus {
         border-color: rgba(255,255,255,0.3);
         background: rgba(255,255,255,0.1);
       }
+
       .close-btn {
         background: rgba(255,255,255,0.1);
         border: none;
@@ -176,19 +167,18 @@ class PlaylistUI {
         height: 32px;
         border-radius: 50%;
         cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        font-size: 16px;
+        line-height: 1;
         flex-shrink: 0;
       }
-      .close-btn:hover {
-        background: rgba(255,255,255,0.2);
-      }
+      .close-btn:hover { background: rgba(255,255,255,0.2); }
+
       .playlist-tracks {
         flex: 1;
         overflow-y: auto;
         padding: 10px;
       }
+
       .track-item {
         display: flex;
         align-items: center;
@@ -197,57 +187,30 @@ class PlaylistUI {
         cursor: pointer;
         transition: background 0.2s;
         gap: 12px;
+        border-left: 3px solid transparent;
       }
-      .track-item:hover {
-        background: rgba(255,255,255,0.05);
-      }
+      .track-item:hover { background: rgba(255,255,255,0.05); }
+
       .track-item.active-track {
-        background: rgba(255, 255, 255, 0.1);
-        border-left: 3px solid #ffcc00;
+        background: rgba(255,204,0,0.08);
+        border-left-color: #ffcc00;
       }
-      .track-item.active-track .track-index {
-        color: #ffcc00;
-        font-weight: bold;
-      }
-      .track-item.active-track .track-title {
-        color: #ffcc00;
-      }
-      .track-index {
-        width: 24px;
+      .track-item.active-track .track-index { color: #ffcc00; font-weight: bold; }
+      .track-item.active-track .track-title { color: #ffcc00; }
+
+      .track-index { width: 28px; text-align: center; color: rgba(255,255,255,0.4); font-size: 13px; flex-shrink: 0; }
+      .track-thumb { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+      .track-info { flex: 1; overflow: hidden; }
+      .track-title { margin: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .track-author { margin: 4px 0 0 0; font-size: 13px; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .track-play-icon { opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+      .track-item:hover .track-play-icon { opacity: 1; }
+
+      .playlist-loading {
         text-align: center;
-        color: rgba(255,255,255,0.5);
+        padding: 40px 20px;
+        color: rgba(255,255,255,0.4);
         font-size: 14px;
-      }
-      .track-thumb {
-        width: 48px;
-        height: 48px;
-        border-radius: 6px;
-        object-fit: cover;
-      }
-      .track-info {
-        flex: 1;
-        overflow: hidden;
-      }
-      .track-title {
-        margin: 0;
-        font-size: 15px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .track-author {
-        margin: 4px 0 0 0;
-        font-size: 13px;
-        color: rgba(255,255,255,0.5);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .track-play-icon {
-        opacity: 0.3;
-      }
-      .track-item:hover .track-play-icon {
-        opacity: 1;
       }
     `;
     document.head.appendChild(style);
@@ -256,33 +219,31 @@ class PlaylistUI {
   injectButton() {
     const btn = document.createElement("button");
     btn.className = "playlist-toggle-btn";
-    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> Playlist`;
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Playlist`;
     btn.onclick = () => this.openModal();
-    
-    const mountButton = () => {
-      const panel = document.querySelector('.panel__card');
-      if (panel && !panel.querySelector('.playlist-toggle-btn')) {
+
+    // Mount inside .panel__card, retry if not yet rendered
+    const mount = () => {
+      const panel = document.querySelector(".panel__card");
+      if (panel && !panel.querySelector(".playlist-toggle-btn")) {
         panel.appendChild(btn);
       }
     };
-    mountButton();
-    const observer = new MutationObserver(mountButton);
-    observer.observe(document.body, { childList: true, subtree: true });
+    mount();
+    new MutationObserver(mount).observe(document.body, { childList: true, subtree: true });
 
+    // Build modal overlay
     const overlay = document.createElement("div");
     overlay.className = "playlist-modal-overlay";
     overlay.id = "playlistModalOverlay";
-    overlay.onclick = (e) => {
-      if (e.target === overlay) this.closeModal();
-    };
-
+    overlay.addEventListener("click", e => { if (e.target === overlay) this.closeModal(); });
     overlay.innerHTML = `
       <div class="playlist-modal">
         <div class="playlist-header">
           <div class="playlist-header-top">
             <div>
               <h2 id="playlistTitle">Playlist</h2>
-              <p id="playlistSubtitle">Loading tracks...</p>
+              <p id="playlistSubtitle">Loading...</p>
             </div>
             <button class="close-btn" id="playlistCloseBtn">✕</button>
           </div>
@@ -292,60 +253,72 @@ class PlaylistUI {
       </div>
     `;
     document.body.appendChild(overlay);
-
-    document.getElementById("playlistCloseBtn").onclick = () => this.closeModal();
+    document.getElementById("playlistCloseBtn").addEventListener("click", () => this.closeModal());
   }
 
   async openModal() {
-    if (!window.ytPlayer || !window.ytPlayer.getPlaylist) {
-      alert("YouTube player is not ready yet!");
-      return;
-    }
-
     const overlay = document.getElementById("playlistModalOverlay");
     overlay.classList.add("active");
 
+    const tracksContainer = document.getElementById("playlistTracks");
+    const titleEl = document.getElementById("playlistTitle");
+    const subtitleEl = document.getElementById("playlistSubtitle");
+    const searchEl = document.getElementById("playlistSearch");
+
+    // Reset search
+    searchEl.value = "";
+
+    // Show loading state
+    tracksContainer.innerHTML = `<div class="playlist-loading">Loading tracks...</div>`;
+
+    // Get active station name from UI
+    const stationName = this.getActiveStationName();
+    titleEl.innerText = stationName ? `${stationName}` : "Playlist";
+
+    // Wait for player to be ready
+    if (!window.ytPlayer || !window.ytPlayer.getPlaylist) {
+      tracksContainer.innerHTML = `<div class="playlist-loading">Player not ready yet. Try again in a moment.</div>`;
+      return;
+    }
+
     const videoIds = window.ytPlayer.getPlaylist() || [];
     if (videoIds.length === 0) {
-      document.getElementById("playlistSubtitle").innerText = "No playlist active in player.";
+      tracksContainer.innerHTML = `<div class="playlist-loading">No tracks loaded in player.</div>`;
       return;
     }
 
-    document.getElementById("playlistSubtitle").innerText = "Fetching tracks...";
-    document.getElementById("playlistSearch").value = "";
-    
-    const tracksContainer = document.getElementById("playlistTracks");
-    tracksContainer.innerHTML = "";
+    subtitleEl.innerText = `${videoIds.length} tracks`;
 
-    const videoIdsStr = videoIds.join(",");
-    if (this.currentVideoIds.join(",") !== videoIdsStr || this.tracks.length === 0) {
-      this.currentVideoIds = videoIds;
-      this.tracks = await this.fetchTracksByVideoIds(videoIds);
+    // Invalidate cache when station changes
+    if (this.cachedStationName !== stationName || this.cachedVideoIds.length !== videoIds.length) {
+      this.cachedStationName = stationName;
+      this.cachedVideoIds = videoIds;
+      this.cachedTracks = [];
+      subtitleEl.innerText = "Fetching track details...";
+      this.cachedTracks = await this.fetchTracksByVideoIds(videoIds);
     }
 
-    if (this.tracks.length === 0) {
-      document.getElementById("playlistSubtitle").innerText = "Could not load tracks. (Check API Key)";
+    if (this.cachedTracks.length === 0) {
+      tracksContainer.innerHTML = `<div class="playlist-loading">Could not load tracks. Check your YouTube API Key in Firebase.</div>`;
       return;
     }
 
-    document.getElementById("playlistSubtitle").innerText = `${this.tracks.length} tracks`;
+    subtitleEl.innerText = `${this.cachedTracks.length} tracks`;
 
     const currentIndex = window.ytPlayer.getPlaylistIndex();
+    tracksContainer.innerHTML = "";
 
-    this.tracks.forEach((track, index) => {
+    this.cachedTracks.forEach((track, index) => {
       const item = document.createElement("div");
-      item.className = "track-item";
-      if (index === currentIndex) {
-        item.classList.add("active-track");
-      }
-      
-      const thumb = track.snippet?.thumbnails?.default?.url || "";
+      item.className = "track-item" + (index === currentIndex ? " active-track" : "");
+
+      const thumb = track.snippet?.thumbnails?.medium?.url || track.snippet?.thumbnails?.default?.url || "";
       const title = track.snippet?.title || "Unknown Track";
-      const author = track.snippet?.channelTitle || track.snippet?.videoOwnerChannelTitle || "";
+      const author = track.snippet?.channelTitle || "";
 
       item.innerHTML = `
         <div class="track-index">${index + 1}</div>
-        <img src="${thumb}" class="track-thumb" />
+        <img src="${thumb}" class="track-thumb" loading="lazy" />
         <div class="track-info">
           <h4 class="track-title">${title}</h4>
           <p class="track-author">${author}</p>
@@ -353,39 +326,41 @@ class PlaylistUI {
         <div class="track-play-icon">▶</div>
       `;
 
-      item.onclick = () => {
-        if (window.ytPlayer && window.ytPlayer.playVideoAt) {
+      // Click to play: use playVideoAt for playlist items
+      item.addEventListener("click", () => {
+        if (!window.ytPlayer) return;
+        try {
           window.ytPlayer.playVideoAt(index);
-          this.closeModal();
+          // Some players need an explicit play call after seek
+          setTimeout(() => {
+            if (window.ytPlayer.getPlayerState && window.ytPlayer.getPlayerState() !== 1) {
+              window.ytPlayer.playVideo();
+            }
+          }, 300);
+        } catch (err) {
+          console.error("playVideoAt error:", err);
         }
-      };
+        this.closeModal();
+      });
 
       tracksContainer.appendChild(item);
     });
 
-    // Search functionality
-    const searchInput = document.getElementById("playlistSearch");
-    searchInput.oninput = (e) => {
-      const query = e.target.value.toLowerCase();
-      const items = tracksContainer.querySelectorAll(".track-item");
-      items.forEach(el => {
-        const title = el.querySelector(".track-title").innerText.toLowerCase();
-        const author = el.querySelector(".track-author").innerText.toLowerCase();
-        if (title.includes(query) || author.includes(query)) {
-          el.style.display = "flex";
-        } else {
-          el.style.display = "none";
-        }
+    // Search filter
+    searchEl.oninput = () => {
+      const q = searchEl.value.toLowerCase();
+      tracksContainer.querySelectorAll(".track-item").forEach(el => {
+        const t = el.querySelector(".track-title").innerText.toLowerCase();
+        const a = el.querySelector(".track-author").innerText.toLowerCase();
+        el.style.display = (!q || t.includes(q) || a.includes(q)) ? "flex" : "none";
       });
     };
 
-    // Auto-scroll to active track
-    setTimeout(() => {
-      const activeItem = tracksContainer.querySelector(".active-track");
-      if (activeItem) {
-        activeItem.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }, 100);
+    // Auto-scroll to currently playing track
+    requestAnimationFrame(() => {
+      const active = tracksContainer.querySelector(".active-track");
+      if (active) active.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   }
 
   closeModal() {
