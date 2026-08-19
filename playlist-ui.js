@@ -295,49 +295,24 @@ class PlaylistUI {
 
       item.addEventListener("click", () => {
         if (!window.ytPlayer) return;
-
         const p = window.ytPlayer;
 
-        // Helper: ensure player is actually playing after a command
-        // Also clicks the React play button to keep React state in sync
-        const ensurePlaying = () => {
-          setTimeout(() => {
-            try {
-              const state = p.getPlayerState ? p.getPlayerState() : -1;
-              // state 1 = playing, -1 = unstarted, 3 = buffering
-              if (state !== 1 && state !== 3) {
-                p.playVideo();
-                // Also poke the React play button so its state syncs
-                const playBtn = document.querySelector(".playbtn");
-                if (playBtn && playBtn.getAttribute("aria-label") === "Play") {
-                  playBtn.click();
-                }
-              }
-            } catch (e) {}
-          }, 500);
-        };
-
         if (this.usingPlayerOrder) {
-          // Strategy 1: track indexes match player's loaded playlist → playVideoAt is safe
+          // Strategy 1: indexes match player order
           try { p.playVideoAt(index); } catch (e) {}
-          ensurePlaying();
+          // playVideoAt switches track but may not auto-play — force it
+          setTimeout(() => { try { p.playVideo(); } catch(e){} }, 150);
         } else {
-          // Strategy 2: track order differs from player (radio mixes)
-          // First try to find the video in the player's actual playlist
+          // Strategy 2: radio mixes — find real index or use loadVideoById
           const playerIds = p.getPlaylist ? (p.getPlaylist() || []) : [];
           const playerIdx = playerIds.indexOf(track.id);
           if (playerIdx !== -1) {
-            // Found in player's shuffled list — use its real index
             try { p.playVideoAt(playerIdx); } catch (e) {}
-            ensurePlaying();
+            setTimeout(() => { try { p.playVideo(); } catch(e){} }, 150);
           } else {
-            // Not in player's list (pure radio mix) — load by video ID directly
-            try {
-              p.loadVideoById({ videoId: track.id, startSeconds: 0 });
-            } catch (e) {
+            try { p.loadVideoById({ videoId: track.id, startSeconds: 0 }); } catch (e) {
               try { p.loadVideoById(track.id); } catch (e2) {}
             }
-            ensurePlaying();
           }
         }
 
