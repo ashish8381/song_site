@@ -204,7 +204,7 @@ class PlaylistUI {
     const searchEl    = document.getElementById("playlistSearch");
 
     searchEl.value = "";
-    tracksEl.innerHTML = `<div class="playlist-loading">Loading tracks...</div>`;
+    tracksEl.innerHTML = `<div class="playlist-loading">Opening playlist...</div>`;
 
     const stationName = this.getActiveStationName();
     titleEl.innerText = stationName || "Playlist";
@@ -217,30 +217,53 @@ class PlaylistUI {
     }
 
     if (this.cachedTracks.length === 0) {
-      subtitleEl.innerText = "Fetching tracks...";
 
-      // Strategy 1: use ytPlayer.getPlaylist() — order matches player's shuffle
-      const playerIds = (window.ytPlayer && window.ytPlayer.getPlaylist)
-        ? (window.ytPlayer.getPlaylist() || [])
-        : [];
-
-      if (playerIds.length > 0) {
-        this.cachedTracks = await this.fetchByVideoIds(playerIds);
-        this.usingPlayerOrder = true; // indexes are in sync with player
+      // Step 1: check API key
+      const key = this.getActiveApiKey();
+      if (!key) {
+        tracksEl.innerHTML = `<div class="playlist-loading">⚠️ Could not load YouTube API keys from Firebase.<br/><br/>Make sure Firebase Realtime Database is accessible.</div>`;
+        return;
+      }
+      if (key.includes("REPLACE_ME")) {
+        tracksEl.innerHTML = `<div class="playlist-loading">🔑 YouTube API Key is not set yet.<br/><br/>Go to Firebase Console → Realtime Database → <b>youtube_api_keys</b> and replace the dummy values with a real YouTube Data API v3 key.</div>`;
+        return;
       }
 
-      // Strategy 2: fallback via playlistItems API (radio mixes / timing issues)
+      // Step 2: check player
+      if (!window.ytPlayer) {
+        tracksEl.innerHTML = `<div class="playlist-loading">⏳ YouTube player not ready yet.<br/>Wait a moment and try again.</div>`;
+        return;
+      }
+
+      // Step 3: try getPlaylist() — works for PL... playlists
+      subtitleEl.innerText = "Checking player playlist...";
+      const playerIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
+      console.log("[PlaylistUI] ytPlayer.getPlaylist():", playerIds.length, "IDs");
+
+      if (playerIds.length > 0) {
+        subtitleEl.innerText = `Fetching ${playerIds.length} track details...`;
+        this.cachedTracks = await this.fetchByVideoIds(playerIds);
+        this.usingPlayerOrder = true;
+        console.log("[PlaylistUI] Strategy 1 result:", this.cachedTracks.length, "tracks");
+      }
+
+      // Step 4: fallback to playlistItems API for radio mixes
       if (this.cachedTracks.length === 0) {
         const pid = this.getStationPlaylistId();
+        console.log("[PlaylistUI] Station playlist ID:", pid);
         if (pid) {
+          subtitleEl.innerText = "Fetching playlist from YouTube API...";
           this.cachedTracks = await this.fetchByPlaylistId(pid);
-          this.usingPlayerOrder = false; // indexes NOT in sync — must use videoId
+          this.usingPlayerOrder = false;
+          console.log("[PlaylistUI] Strategy 2 result:", this.cachedTracks.length, "tracks");
+        } else {
+          console.warn("[PlaylistUI] No playlist ID found in appConfig. appConfig:", window.appConfig);
         }
       }
     }
 
     if (this.cachedTracks.length === 0) {
-      tracksEl.innerHTML = `<div class="playlist-loading">Could not load tracks.<br/>Make sure your YouTube API Key is set in Firebase.</div>`;
+      tracksEl.innerHTML = `<div class="playlist-loading">❌ Could not load tracks.<br/><br/>Open DevTools Console (F12) and check for errors.</div>`;
       return;
     }
 
