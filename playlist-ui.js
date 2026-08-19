@@ -8,8 +8,8 @@ class PlaylistUI {
 
   async init() {
     await this.fetchKeys();
-    this.injectButton();
     this.injectStyles();
+    this.injectButton();
   }
 
   async fetchKeys() {
@@ -23,7 +23,6 @@ class PlaylistUI {
 
   getActiveApiKey() {
     if (!this.apiKeys) return null;
-    // priority: primary -> fallback -> fallback2
     return this.apiKeys.primary || this.apiKeys.fallback || this.apiKeys.fallback2;
   }
 
@@ -32,8 +31,6 @@ class PlaylistUI {
     const nameEl = document.querySelector(".tuner__name");
     if (!nameEl) return null;
     const name = nameEl.innerText.trim().toLowerCase();
-    
-    // Find in config
     return window.appConfig.STATIONS.find(s => s.name.toLowerCase() === name);
   }
 
@@ -48,7 +45,6 @@ class PlaylistUI {
     let nextPageToken = "";
     
     try {
-      // Small UI hint for long playlists
       const subtitle = document.getElementById("playlistSubtitle");
       if (subtitle) subtitle.innerText = "Fetching tracks (this might take a moment)...";
       
@@ -70,7 +66,7 @@ class PlaylistUI {
         allItems = allItems.concat(data.items || []);
         nextPageToken = data.nextPageToken;
         
-      } while (nextPageToken && allItems.length < 500); // cap at 500 to prevent infinite loops on massive playlists
+      } while (nextPageToken && allItems.length < 500);
 
       return allItems;
     } catch (e) {
@@ -123,7 +119,7 @@ class PlaylistUI {
         background: #18181b;
         width: 90%;
         max-width: 500px;
-        max-height: 80vh;
+        max-height: 85vh;
         border-radius: 16px;
         overflow: hidden;
         display: flex;
@@ -135,17 +131,37 @@ class PlaylistUI {
         padding: 20px;
         border-bottom: 1px solid rgba(255,255,255,0.1);
         display: flex;
+        flex-direction: column;
+      }
+      .playlist-header-top {
+        display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
       }
       .playlist-header h2 {
         margin: 0;
         font-size: 20px;
       }
       .playlist-header p {
-        margin: 4px 0 0 0;
+        margin: 4px 0 12px 0;
         font-size: 14px;
         color: rgba(255,255,255,0.5);
+      }
+      .playlist-search {
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.05);
+        color: white;
+        width: 100%;
+        box-sizing: border-box;
+        font-family: inherit;
+        font-size: 14px;
+        outline: none;
+      }
+      .playlist-search:focus {
+        border-color: rgba(255,255,255,0.3);
+        background: rgba(255,255,255,0.1);
       }
       .close-btn {
         background: rgba(255,255,255,0.1);
@@ -158,6 +174,7 @@ class PlaylistUI {
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
       }
       .close-btn:hover {
         background: rgba(255,255,255,0.2);
@@ -178,6 +195,17 @@ class PlaylistUI {
       }
       .track-item:hover {
         background: rgba(255,255,255,0.05);
+      }
+      .track-item.active-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-left: 3px solid #ffcc00;
+      }
+      .track-item.active-track .track-index {
+        color: #ffcc00;
+        font-weight: bold;
+      }
+      .track-item.active-track .track-title {
+        color: #ffcc00;
       }
       .track-index {
         width: 24px;
@@ -236,7 +264,6 @@ class PlaylistUI {
     const observer = new MutationObserver(mountButton);
     observer.observe(document.body, { childList: true, subtree: true });
 
-
     const overlay = document.createElement("div");
     overlay.className = "playlist-modal-overlay";
     overlay.id = "playlistModalOverlay";
@@ -247,11 +274,14 @@ class PlaylistUI {
     overlay.innerHTML = `
       <div class="playlist-modal">
         <div class="playlist-header">
-          <div>
-            <h2 id="playlistTitle">Playlist</h2>
-            <p id="playlistSubtitle">Loading tracks...</p>
+          <div class="playlist-header-top">
+            <div>
+              <h2 id="playlistTitle">Playlist</h2>
+              <p id="playlistSubtitle">Loading tracks...</p>
+            </div>
+            <button class="close-btn" id="playlistCloseBtn">✕</button>
           </div>
-          <button class="close-btn" id="playlistCloseBtn">✕</button>
+          <input type="text" id="playlistSearch" class="playlist-search" placeholder="Search songs or artists..." autocomplete="off" />
         </div>
         <div class="playlist-tracks" id="playlistTracks"></div>
       </div>
@@ -273,6 +303,7 @@ class PlaylistUI {
 
     document.getElementById("playlistTitle").innerText = station.name + " Playlist";
     document.getElementById("playlistSubtitle").innerText = "Fetching tracks...";
+    document.getElementById("playlistSearch").value = "";
     
     const tracksContainer = document.getElementById("playlistTracks");
     tracksContainer.innerHTML = "";
@@ -289,9 +320,14 @@ class PlaylistUI {
 
     document.getElementById("playlistSubtitle").innerText = `${this.tracks.length} tracks`;
 
+    const currentIndex = (window.ytPlayer && window.ytPlayer.getPlaylistIndex) ? window.ytPlayer.getPlaylistIndex() : -1;
+
     this.tracks.forEach((track, index) => {
       const item = document.createElement("div");
       item.className = "track-item";
+      if (index === currentIndex) {
+        item.classList.add("active-track");
+      }
       
       const thumb = track.snippet.thumbnails?.default?.url || "";
       const title = track.snippet.title;
@@ -318,6 +354,30 @@ class PlaylistUI {
 
       tracksContainer.appendChild(item);
     });
+
+    // Search functionality
+    const searchInput = document.getElementById("playlistSearch");
+    searchInput.oninput = (e) => {
+      const query = e.target.value.toLowerCase();
+      const items = tracksContainer.querySelectorAll(".track-item");
+      items.forEach(el => {
+        const title = el.querySelector(".track-title").innerText.toLowerCase();
+        const author = el.querySelector(".track-author").innerText.toLowerCase();
+        if (title.includes(query) || author.includes(query)) {
+          el.style.display = "flex";
+        } else {
+          el.style.display = "none";
+        }
+      });
+    };
+
+    // Auto-scroll to active track
+    setTimeout(() => {
+      const activeItem = tracksContainer.querySelector(".active-track");
+      if (activeItem) {
+        activeItem.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
   }
 
   closeModal() {
@@ -325,7 +385,6 @@ class PlaylistUI {
   }
 }
 
-// Initialize when DOM is ready
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => new PlaylistUI());
 } else {
