@@ -1,6 +1,6 @@
-# Rickshaw FM
+# Baarish Vibe
 
-Rickshaw FM is a mood-driven web radio experience built around 90s and 2000s Bollywood music. The site presents itself like a late-night in-auto radio: listeners can tune between stations, start playback instantly, and optionally create shared listening rooms where everyone hears the same song at the same timestamp.
+Baarish Vibe is a mood-driven web radio experience built around 90s and 2000s Bollywood music. The site presents itself like a late-night in-auto radio: listeners can tune between stations, start playback instantly, and optionally create shared listening rooms where everyone hears the same song at the same timestamp.
 
 This README is based on the built project available in `/Users/ashish/Downloads/Song Site/`. The folder appears to contain the production build, not the original source code, so the documentation below reflects observed behavior from the shipped HTML, CSS, and JavaScript bundle.
 
@@ -103,7 +103,7 @@ Additional accessibility-oriented behavior observed in the build:
 - Supabase-backed realtime/presence features for online count and rooms
 - Browser `localStorage` persistence for user preferences
 
-The saved HTML also references a hosted build from `rickshaw-26925.web.app`, which suggests static hosting was likely used for deployment at least once.
+The saved HTML also references a hosted build from `baarish-vibe-26925.web.app`, which suggests static hosting was likely used for deployment at least once.
 
 ## Project Structure In The Provided Folder
 
@@ -213,6 +213,6 @@ Yes, there are optimization opportunities.
 
 ## Final Assessment
 
-Rickshaw FM already delivers a memorable and differentiated listening experience. It is more than a basic music player: it combines internet radio styling, social listening rooms, lightweight realtime presence, and a polished visual atmosphere.
+Baarish Vibe already delivers a memorable and differentiated listening experience. It is more than a basic music player: it combines internet radio styling, social listening rooms, lightweight realtime presence, and a polished visual atmosphere.
 
 The main shortcomings are not product concept or design quality. They are maintainability, deployment hygiene, metadata completeness, and a few performance/asset issues. With the original source restored and a small round of cleanup, this could be documented and maintained like a proper production-ready project.
