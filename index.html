@@ -43,6 +43,15 @@
       video.preload = "auto";
       video.load();
       video.play().catch(() => {});
+
+      // Pause background video when tab is hidden to prevent Chrome from throttling the tab's media (which stops YouTube audio)
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          video.pause();
+        } else {
+          video.play().catch(() => {});
+        }
+      });
     }
     // Start video load after page is interactive and player has had time to initialise
     if (document.readyState === "complete") {
