@@ -44,18 +44,38 @@ class PlaylistUI {
       return [];
     }
 
+    let allItems = [];
+    let nextPageToken = "";
+    
     try {
-      const res = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${key}`);
-      const data = await res.json();
-      if (data.error) {
-        console.error("YouTube API Error:", data.error);
-        alert("YouTube API Error: " + data.error.message);
-        return [];
-      }
-      return data.items || [];
+      // Small UI hint for long playlists
+      const subtitle = document.getElementById("playlistSubtitle");
+      if (subtitle) subtitle.innerText = "Fetching tracks (this might take a moment)...";
+      
+      do {
+        let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${key}`;
+        if (nextPageToken) {
+          url += `&pageToken=${nextPageToken}`;
+        }
+        
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.error) {
+          console.error("YouTube API Error:", data.error);
+          if (allItems.length === 0) alert("YouTube API Error: " + data.error.message);
+          break;
+        }
+        
+        allItems = allItems.concat(data.items || []);
+        nextPageToken = data.nextPageToken;
+        
+      } while (nextPageToken && allItems.length < 500); // cap at 500 to prevent infinite loops on massive playlists
+
+      return allItems;
     } catch (e) {
       console.error("Failed to fetch tracks", e);
-      return [];
+      return allItems;
     }
   }
 
