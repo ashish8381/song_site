@@ -15,14 +15,13 @@ class PlaylistUI {
   }
 
   startStationWatcher() {
-    let lastStation = null;
-    // Check every second to see if the station name in the DOM has changed
+    let lastPid = null;
     setInterval(() => {
-      const currentStation = this.getActiveStationName();
-      if (currentStation && currentStation !== lastStation) {
-        lastStation = currentStation;
-        const pid = this.getStationPlaylistId();
-        console.log(`[Station Changed] Name: "${currentStation}" | Playlist ID: ${pid}`);
+      const currentPid = this.getStationPlaylistId();
+      if (currentPid && currentPid !== lastPid) {
+        lastPid = currentPid;
+        const name = this.getActiveStationName();
+        console.log(`[Station Watcher] Now playing: "${name}" | Playlist ID: ${currentPid}`);
       }
     }, 1000);
   }
@@ -41,17 +40,20 @@ class PlaylistUI {
     return this.apiKeys.primary || this.apiKeys.fallback || this.apiKeys.fallback2;
   }
 
-  getActiveStationName() {
-    const el = document.querySelector(".tuner__name");
-    return el ? el.innerText.trim() : null;
+  getStationPlaylistId() {
+    if (window.activePlaylistId) return window.activePlaylistId;
+    // Fallback to initial default station on first load
+    if (window.appConfig && window.appConfig.STATIONS && window.appConfig.STATIONS.length > 0) {
+      return window.appConfig.STATIONS[0].playlist;
+    }
+    return null;
   }
 
-  getStationPlaylistId() {
-    if (!window.appConfig) return null;
-    const name = this.getActiveStationName();
-    if (!name) return null;
-    const s = window.appConfig.STATIONS.find(s => s.name.toLowerCase() === name.toLowerCase());
-    return s ? s.playlist : null;
+  getActiveStationName() {
+    const pid = this.getStationPlaylistId();
+    if (!pid || !window.appConfig) return "Playlist";
+    const s = window.appConfig.STATIONS.find(st => st.playlist === pid);
+    return s ? s.name : "Playlist";
   }
 
   // Fetch video details by video IDs (preserving order)
