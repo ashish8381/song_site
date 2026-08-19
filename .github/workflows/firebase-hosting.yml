@@ -20,9 +20,7 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VIBE }}
-          projectId: hisabx-48958
-          target: live
-          entryPoint: ./hisabx-web
+          projectId: ashish827-2999a
 
   deploy-live:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -34,6 +32,4 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VIBE }}
           channelId: live
-          projectId: hisabx-48958
-          target: live
-          entryPoint: ./hisabx-web
+          projectId: ashish827-2999a
