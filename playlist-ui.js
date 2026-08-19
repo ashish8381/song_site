@@ -62,28 +62,29 @@ class PlaylistUI {
   injectStyles() {
     const style = document.createElement("style");
     style.innerHTML = `
+      .panel__card { position: relative; }
       .playlist-toggle-btn {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        background: rgba(40, 40, 40, 0.8);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 30px;
+        position: absolute;
+        top: 24px;
+        right: 24px;
+        background: rgba(0,0,0,0.3);
+        color: rgba(255,255,255,0.8);
+        border: 1px solid rgba(255,255,255,0.15);
+        padding: 6px 12px;
+        border-radius: 20px;
         font-family: inherit;
-        font-size: 16px;
-        font-weight: bold;
+        font-size: 13px;
+        font-weight: 600;
         cursor: pointer;
-        z-index: 1000;
+        z-index: 100;
         display: flex;
         align-items: center;
-        gap: 8px;
-        backdrop-filter: blur(10px);
-        transition: background 0.2s;
+        gap: 6px;
+        transition: all 0.2s;
       }
       .playlist-toggle-btn:hover {
-        background: rgba(60, 60, 60, 0.9);
+        background: rgba(255,255,255,0.1);
+        color: white;
       }
       .playlist-modal-overlay {
         position: fixed;
@@ -202,9 +203,19 @@ class PlaylistUI {
   injectButton() {
     const btn = document.createElement("button");
     btn.className = "playlist-toggle-btn";
-    btn.innerHTML = \`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> Playlist\`;
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> Playlist`;
     btn.onclick = () => this.openModal();
-    document.body.appendChild(btn);
+    
+    const mountButton = () => {
+      const panel = document.querySelector('.panel__card');
+      if (panel && !panel.querySelector('.playlist-toggle-btn')) {
+        panel.appendChild(btn);
+      }
+    };
+    mountButton();
+    const observer = new MutationObserver(mountButton);
+    observer.observe(document.body, { childList: true, subtree: true });
+
 
     const overlay = document.createElement("div");
     overlay.className = "playlist-modal-overlay";
@@ -213,7 +224,7 @@ class PlaylistUI {
       if (e.target === overlay) this.closeModal();
     };
 
-    overlay.innerHTML = \`
+    overlay.innerHTML = `
       <div class="playlist-modal">
         <div class="playlist-header">
           <div>
@@ -224,7 +235,7 @@ class PlaylistUI {
         </div>
         <div class="playlist-tracks" id="playlistTracks"></div>
       </div>
-    \`;
+    `;
     document.body.appendChild(overlay);
 
     document.getElementById("playlistCloseBtn").onclick = () => this.closeModal();
@@ -256,7 +267,7 @@ class PlaylistUI {
       return;
     }
 
-    document.getElementById("playlistSubtitle").innerText = \`\${this.tracks.length} tracks\`;
+    document.getElementById("playlistSubtitle").innerText = `${this.tracks.length} tracks`;
 
     this.tracks.forEach((track, index) => {
       const item = document.createElement("div");
@@ -266,15 +277,15 @@ class PlaylistUI {
       const title = track.snippet.title;
       const author = track.snippet.videoOwnerChannelTitle || "";
 
-      item.innerHTML = \`
-        <div class="track-index">\${index + 1}</div>
-        <img src="\${thumb}" class="track-thumb" />
+      item.innerHTML = `
+        <div class="track-index">${index + 1}</div>
+        <img src="${thumb}" class="track-thumb" />
         <div class="track-info">
-          <h4 class="track-title">\${title}</h4>
-          <p class="track-author">\${author}</p>
+          <h4 class="track-title">${title}</h4>
+          <p class="track-author">${author}</p>
         </div>
         <div class="track-play-icon">▶</div>
-      \`;
+      `;
 
       item.onclick = () => {
         if (window.ytPlayer && window.ytPlayer.playVideoAt) {
