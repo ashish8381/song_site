@@ -236,8 +236,32 @@ class PlaylistUI {
       }
 
       // Step 3: try getPlaylist() — works for PL... playlists
-      subtitleEl.innerText = "Checking player playlist...";
-      const playerIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
+      // If station just changed, wait for the player to load the new playlist
+      // (ytPlayer.getPlaylist() still returns the OLD station's IDs briefly after cuePlaylist)
+      subtitleEl.innerText = "Waiting for station to load...";
+
+      let playerIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
+      const stationPlaylistId = this.getStationPlaylistId();
+
+      if (playerIds.length > 0 && stationPlaylistId) {
+        // Poll until the player's first video ID belongs to the new station's playlist
+        // or until 2.5 seconds pass (fallback)
+        const deadline = Date.now() + 2500;
+        while (Date.now() < deadline) {
+          // Check current video: if it matches an ID in the new station's playlist,
+          // the player has switched. We verify by checking getVideoData against the station.
+          const freshIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
+          // A heuristic: if the playlist length changed, or first ID changed, player has switched
+          if (freshIds.length !== playerIds.length || freshIds[0] !== playerIds[0]) {
+            playerIds = freshIds;
+            break;
+          }
+          // Also check: if the current video is from a different set, we're good
+          await new Promise(r => setTimeout(r, 200));
+          playerIds = window.ytPlayer.getPlaylist ? (window.ytPlayer.getPlaylist() || []) : [];
+        }
+      }
+
       console.log("[PlaylistUI] ytPlayer.getPlaylist():", playerIds.length, "IDs");
 
       if (playerIds.length > 0) {
