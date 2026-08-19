@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "ashish827-2999a"
-  }
+  },
+  "targets": {
+    "ashish827-2999a": {
+      "hosting": {
+        "viberoom": [
+          "viberoom"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

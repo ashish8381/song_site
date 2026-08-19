@@ -21,6 +21,7 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VIBE }}
           projectId: ashish827-2999a
+          target: viberoom
 
   deploy-live:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -33,3 +34,4 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VIBE }}
           channelId: live
           projectId: ashish827-2999a
+          target: viberoom
