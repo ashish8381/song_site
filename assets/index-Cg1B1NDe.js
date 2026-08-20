@@ -9266,7 +9266,7 @@ const tt = { viewBox: "0 0 24 24", "aria-hidden": !0, focusable: !1 },
       {
         name: "Favourite",
         freq: "95.8",
-        playlist: "PLbN4o30dcPIs3OgCS4F1GKrDg_soMJdjt",
+        playlist: "PL4IG-Xsx8-1KqvAE_EZttzypx0iUzM4sO",
       },
     ],
     PLAYLIST_IDS: [],
@@ -22304,7 +22304,7 @@ function L_(t, e, n) {
           }
           const S = u(),
             C = d(),
-            E = S.length > 0 && S.join(",") !== v;
+            E = S.length > 0 && (S.join(",") !== v || g === (a > 1 ? e[a-2].playlist : ""));
           if (y ? S.length > 0 : E && (!C || C === g)) {
             const x = [],
               M = new Set();
