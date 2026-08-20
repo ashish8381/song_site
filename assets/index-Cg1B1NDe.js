@@ -22304,7 +22304,7 @@ function L_(t, e, n) {
           }
           const S = u(),
             C = d(),
-            E = S.length > 0 && S.join(",") !== v;
+            E = S.length > 0 && (S.join(",") !== v || g === (a > 1 ? e[a-2].playlist : ""));
           if (y ? S.length > 0 : E && (!C || C === g)) {
             const x = [],
               M = new Set();
