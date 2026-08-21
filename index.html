@@ -36,7 +36,7 @@
 
   <!-- Lazy-load background video only after page is interactive so player doesn't get blocked -->
   <script>
-    function lazyLoadBgVideo() {
+    async function lazyLoadBgVideo() {
       const video = document.querySelector("video.scene__img");
       if (!video) return;
       // Only trigger actual download now
@@ -44,14 +44,22 @@
       video.load();
       video.play().catch(() => {});
 
-      // Pause background video when tab is hidden to prevent Chrome from throttling the tab's media (which stops YouTube audio)
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden) {
-          video.pause();
-        } else {
-          video.play().catch(() => {});
-        }
-      });
+      // 1. Check if the browser is Brave
+      let isBrave = false;
+      if (navigator.brave && await navigator.brave.isBrave()) {
+        isBrave = true;
+      }
+
+      // 2. Pause background video when tab is hidden to prevent Chrome from throttling, but allow background play on Brave
+      if (!isBrave) {
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) {
+            video.pause();
+          } else {
+            video.play().catch(() => {});
+          }
+        });
+      }
     }
     // Start video load after page is interactive and player has had time to initialise
     if (document.readyState === "complete") {
