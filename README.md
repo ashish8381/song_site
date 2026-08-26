@@ -1,6 +1,6 @@
-# Baarish Vibe
+# Vibe Room
 
-Baarish Vibe is a mood-driven web radio experience built around 90s and 2000s Bollywood music. The site presents itself like a late-night rainy drive: listeners can tune between stations, start playback instantly, and optionally create shared listening rooms where everyone hears the same song at the same timestamp.
+Vibe Room is a mood-driven web radio experience built around 90s and 2000s Bollywood music. The site presents itself like a late-night rainy drive: listeners can tune between stations, start playback instantly, and optionally create shared listening rooms where everyone hears the same song at the same timestamp.
 
 ## Main Features
 
@@ -90,4 +90,4 @@ Built-in keyboard shortcuts are exposed in a dedicated help modal:
 
 ## Final Assessment
 
-Baarish Vibe delivers a memorable and differentiated listening experience. It combines internet radio styling, social listening rooms, lightweight realtime presence, and a polished visual atmosphere.
+Vibe Room delivers a memorable and differentiated listening experience. It combines internet radio styling, social listening rooms, lightweight realtime presence, and a polished visual atmosphere.

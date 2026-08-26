@@ -9273,7 +9273,7 @@ const tt = { viewBox: "0 0 24 24", "aria-hidden": !0, focusable: !1 },
     SHOW_TUNER: !0,
     TUNE_STATIC: !0,
     TUNE_IN_MIDSONG: !1,
-    SITE_NAME: "Baarish Vibe",
+    SITE_NAME: "Vibe Room",
     TAGLINE: "90s & 2000s Bollywood, on loop.",
     START_SHUFFLED: !0,
     DEFAULT_VOLUME: 70,
@@ -9281,7 +9281,7 @@ const tt = { viewBox: "0 0 24 24", "aria-hidden": !0, focusable: !1 },
     IDLE_HIDE_SECONDS: 20,
     COVER_COLOR_BLEED: !0,
     SHOW_PRESENCE_COUNTER: !0,
-    PRESENCE_ROOM: "baarish-vibe-fm",
+    PRESENCE_ROOM: "vibe-room-fm",
     ENABLE_ROOMS: !0,
     ROOM_SYNC_SECONDS: 5,
     REACTIONS: ["❤️", "🔥", "💃", "😂","😭","💔"],
@@ -21237,7 +21237,7 @@ function Co(t) {
 function s_(t) {
   return `listening-room:${t}`;
 }
-const Hl = "baarish-vibe-fm:room";
+const Hl = "vibe-room-fm:room";
 function i_() {
   try {
     const t = new URL(window.location.href),
@@ -21263,7 +21263,7 @@ function o_() {
     return "";
   }
 }
-const Bp = "baarish-vibe-fm:";
+const Bp = "vibe-room-fm:";
 function Ys(t, e) {
   try {
     const n = localStorage.getItem(Bp + t);
@@ -21289,7 +21289,7 @@ const a_ = [
     "Golden",
     "Turbo",
     "Bombay",
-    "Baarish Vibe",
+    "Vibe Room",
     "Cassette",
     "Jhakaas",
     "Bindaas",

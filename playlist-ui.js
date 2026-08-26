@@ -62,7 +62,7 @@ class PlaylistUI {
 
   getStationPlaylistId() {
     try {
-      const stored = localStorage.getItem("baarish-vibe-fm:station");
+      const stored = localStorage.getItem("vibe-room-fm:station");
       if (stored) {
         // Remove the extra quotes from JSON.stringify
         return JSON.parse(stored);
