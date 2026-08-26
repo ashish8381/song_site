@@ -54,7 +54,38 @@
       window.addEventListener("load", () => setTimeout(lazyLoadBgVideo, 500));
     }
   </script>
+
+  <script>
+    // Create a native media session and silent audio to keep the background active
+    (function() {
+      // Tiny 1-second silent MP3 base64
+      const silentAudio = new Audio("data:audio/mp3;base64,//MkxAAQACcAIUAFACAAUABAAEAAAEAwAAoBAAAwAAoBAAAABgBwAA8BAAABgBwAA8BAAAEBwEAAA8BAAAEBwEAAA8BAAAAAAAAAAA=");
+      silentAudio.loop = true;
+      silentAudio.volume = 0.01;
+
+      const initAudio = () => {
+        silentAudio.play().catch(e => {});
+        document.removeEventListener('click', initAudio);
+        document.removeEventListener('touchstart', initAudio);
+        
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: 'Vibe Room',
+            artist: 'Playing in background',
+            album: 'Radio'
+          });
+          // Empty handlers trick Android into keeping the media session active
+          navigator.mediaSession.setActionHandler('play', () => {});
+          navigator.mediaSession.setActionHandler('pause', () => {});
+        }
+      };
+
+      document.addEventListener('click', initAudio);
+      document.addEventListener('touchstart', initAudio);
+    })();
+  </script>
 </head>
+
 <body>
   <div id="root"></div>
 </body>
