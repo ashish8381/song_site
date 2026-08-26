@@ -56,9 +56,39 @@ class PlaylistUI {
     }
   }
 
-  getActiveApiKey() {
+getActiveApiKey() {
     if (!this.apiKeys) return null;
     return this.apiKeys.primary || this.apiKeys.fallback || this.apiKeys.fallback2;
+  }
+
+  markKeyExhausted(exhaustedKey) {
+    if (!this.apiKeys) return;
+    if (this.apiKeys.primary === exhaustedKey) {
+      console.warn("[YouTube API] Primary key exhausted. Switching to fallback.");
+      this.apiKeys.primary = null;
+    } else if (this.apiKeys.fallback === exhaustedKey) {
+      console.warn("[YouTube API] Fallback key exhausted. Switching to fallback2.");
+      this.apiKeys.fallback = null;
+    } else if (this.apiKeys.fallback2 === exhaustedKey) {
+      console.warn("[YouTube API] ALL keys exhausted!");
+      this.apiKeys.fallback2 = null;
+    }
+  }
+
+  async fetchYoutubeApi(urlBuilder) {
+    while (true) {
+      const key = this.getActiveApiKey();
+      if (!key || key.includes("REPLACE_ME")) return { error: { message: "No valid API keys available." } };
+      
+      const res = await fetch(urlBuilder(key));
+      const data = await res.json();
+      
+      if (data.error && data.error.code === 429) {
+        this.markKeyExhausted(key);
+        continue;
+      }
+      return data;
+    }
   }
 
   getStationPlaylistId() {
@@ -88,14 +118,11 @@ class PlaylistUI {
 
   // Fetch video details by video IDs (preserving order)
   async fetchByVideoIds(videoIds) {
-    const key = this.getActiveApiKey();
-    if (!key || key.includes("REPLACE_ME")) return [];
     let results = [];
     for (let i = 0; i < videoIds.length; i += 50) {
       const chunk = videoIds.slice(i, i + 50).join(",");
       try {
-        const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${chunk}&key=${key}`);
-        const data = await res.json();
+        const data = await this.fetchYoutubeApi(key => `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${chunk}&key=${key}`);
         if (data.error) { console.error("YT API error", data.error); break; }
         const map = {};
         (data.items || []).forEach(v => { map[v.id] = v; });
@@ -115,15 +142,14 @@ class PlaylistUI {
 
   // Fetch from playlist API (for radio mixes / fallback)
   async fetchByPlaylistId(playlistId) {
-    const key = this.getActiveApiKey();
-    if (!key || key.includes("REPLACE_ME")) return [];
     let results = [], pageToken = "";
     do {
       try {
-        let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${key}`;
-        if (pageToken) url += `&pageToken=${pageToken}`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const data = await this.fetchYoutubeApi(key => {
+            let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${key}`;
+            if (pageToken) url += `&pageToken=${pageToken}`;
+            return url;
+        });
         if (data.error) { console.error("YT API error", data.error); break; }
         (data.items || []).forEach(item => {
           results.push({
@@ -277,9 +303,13 @@ class PlaylistUI {
         resultsContainer.innerHTML = '<div class="search-msg">Searching...</div>';
         resultsContainer.style.display = "flex";
 
-        try {
-          const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(query)}&key=${key}`);
-          const data = await res.json();
+try {
+          const data = await this.fetchYoutubeApi(key => `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(query)}&key=${key}`);
+          
+          if (data.error) {
+            resultsContainer.innerHTML = `<div class="search-msg" style="color:#ff5555;">${data.error.message || "Quota exhausted"}</div>`;
+            return;
+          }
           
           if (!data.items || data.items.length === 0) {
             resultsContainer.innerHTML = '<div class="search-msg">No results found</div>';
