@@ -22445,7 +22445,7 @@ function $_(t) {
                     case Ce.BUFFERING:
                       y(!0);
                       break;
-                    case Ce.PAUSED: if(document.hidden){setTimeout(()=>fe.target.playVideo(),50);} (h(!1), y(!1)); break;
+                    case Ce.PAUSED: if(document.hidden){if(!window.__ytResumeInterval){window.__ytResumeInterval=setInterval(()=>{if(document.hidden&&fe.target.getPlayerState()===2){fe.target.playVideo();}else if(!document.hidden){clearInterval(window.__ytResumeInterval);window.__ytResumeInterval=null;}}, 500);}} (h(!1), y(!1)); break;
                     case Ce.ENDED:
                       (y(!0),
                         a.current
