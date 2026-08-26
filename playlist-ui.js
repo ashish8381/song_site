@@ -246,8 +246,8 @@ getActiveApiKey() {
       .track-info { flex: 1; overflow: hidden; }
       .track-title { margin: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .track-author { margin: 4px 0 0 0; font-size: 13px; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .track-play-icon { opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
-      .track-item:hover .track-play-icon { opacity: 1; }
+      .playlist-item-actions { opacity: 0; transition: opacity 0.15s; }
+      .track-item:hover .playlist-item-actions { opacity: 1; }
       
       .global-search-container { margin: 10px 16px 20px; position: relative; z-index: 9999; }
       .search-input-wrapper { position: relative; }
@@ -528,8 +528,24 @@ try {
           <h4 class="track-title">${track.title}</h4>
           <p class="track-author">${track.author}</p>
         </div>
-        <div class="track-play-icon">▶</div>
+        <div class="search-actions playlist-item-actions">
+          <button class="search-btn queue-btn" title="Add to Queue">➕</button>
+        </div>
       `;
+
+      const queueBtn = item.querySelector(".queue-btn");
+      queueBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        window.customQueue = window.customQueue || [];
+        window.customQueue.push({
+            id: track.id,
+            title: track.title,
+            author: track.author,
+            thumb: track.thumb
+        });
+        queueBtn.innerHTML = "✅";
+        setTimeout(() => { queueBtn.innerHTML = "➕"; }, 1000);
+      });
 
       item.addEventListener("click", () => {
         if (!window.ytPlayer) return;
