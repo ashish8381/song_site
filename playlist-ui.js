@@ -274,6 +274,14 @@ getActiveApiKey() {
       .search-author { margin: 4px 0 0 0; font-size: 12px; color: rgba(255, 255, 255, 0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .search-msg { padding: 12px; color: rgba(255,255,255,0.5); font-size: 13px; text-align: center; }
       
+      .search-actions { display: flex; gap: 8px; flex-shrink: 0; }
+      .search-btn { 
+        background: rgba(255,255,255,0.1); border: none; border-radius: 6px; 
+        width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: background 0.2s; font-size: 14px;
+      }
+      .search-btn:hover { background: rgba(255,255,255,0.25); }
+
       .playlist-loading { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); font-size: 14px; }
     `;
     document.head.appendChild(style);
@@ -351,8 +359,17 @@ try {
                 <p class="search-title">${title}</p>
                 <p class="search-author">${author}</p>
               </div>
+              <div class="search-actions">
+                <button class="search-btn play-btn" title="Play Now">▶️</button>
+                <button class="search-btn queue-btn" title="Add to Queue">➕</button>
+              </div>
             `;
-el.onclick = () => {
+            
+            const playBtn = el.querySelector(".play-btn");
+            const queueBtn = el.querySelector(".queue-btn");
+            
+            playBtn.onclick = (e) => {
+              e.stopPropagation();
               if (window.ytPlayer) {
                 try { 
                   window.ytPlayer.loadVideoById(item.id.videoId); 
@@ -367,6 +384,21 @@ el.onclick = () => {
               input.value = "";
               resultsContainer.style.display = "none";
             };
+            
+            queueBtn.onclick = (e) => {
+              e.stopPropagation();
+              window.customQueue = window.customQueue || [];
+              window.customQueue.push({
+                  id: item.id.videoId,
+                  title: title,
+                  author: author,
+                  thumb: thumb
+              });
+              
+              queueBtn.innerHTML = "✅";
+              setTimeout(() => { queueBtn.innerHTML = "➕"; }, 1000);
+            };
+
             resultsContainer.appendChild(el);
           });
         } catch (err) {

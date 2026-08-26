@@ -22446,12 +22446,7 @@ function $_(t) {
                       y(!0);
                       break;
                     case Ce.PAUSED: if(document.hidden){if(!window.__ytResumeInterval){window.__ytResumeInterval=setInterval(()=>{if(document.hidden&&fe.target.getPlayerState()===2){fe.target.playVideo();}else if(!document.hidden){clearInterval(window.__ytResumeInterval);window.__ytResumeInterval=null;}}, 500);}} (h(!1), y(!1)); break;
-                    case Ce.ENDED:
-                      (y(!0),
-                        a.current
-                          ? a.current()
-                          : (De = l.current) == null || De.call(l));
-                      break;
+                    case Ce.ENDED: if (window.customQueue && window.customQueue.length > 0) { const nextTrack = window.customQueue.shift(); window.customActiveTrack = nextTrack; setTimeout(() => { fe.target.loadVideoById(nextTrack.id); }, 50); // Dispatch an event to update queue UI if needed window.dispatchEvent(new CustomEvent('customQueueChanged')); break; } (y(!0), a.current ? a.current() : (De = l.current) == null || De.call(l)); break;
                   }
                 },
                 onError: (fe) => {
