@@ -21370,7 +21370,7 @@ function d_({ room: t }) {
       join: y,
       leave: v,
     } = t,
-    k = (Array.isArray(ie.REACTIONS) ? ie.REACTIONS : []).slice(0, 4),
+    k = (Array.isArray(ie.REACTIONS) ? ie.REACTIONS : []).slice(0, 10),
     [p, f] = _.useState(null),
     [m, S] = _.useState(""),
     [C, E] = _.useState(""),
@@ -21696,7 +21696,7 @@ const g_ = [
   [["T"], "Next station on the dial"],
   [["L"], "Love this song"],
   [["X"], "Never play this again"],
-  [["1–4"], "React, in a room"],
+  [["1–6"], "React, in a room"],
   [["?"], "This list"],
 ];
 function m_({
@@ -23439,7 +23439,9 @@ function W_() {
             case "1":
             case "2":
             case "3":
-            case "4": {
+            case "4":
+            case "5":
+            case "6": {
               if (!i) break;
               const k =
                 (v = ie.REACTIONS) == null ? void 0 : v[Number(h.key) - 1];
