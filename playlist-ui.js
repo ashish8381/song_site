@@ -30,6 +30,13 @@ async init() {
           const currentVideoId = window.ytPlayer.getVideoData()?.video_id;
           if (currentVideoId && currentVideoId !== window.customActiveTrack.id) {
              window.customActiveTrack = null;
+             const titleEl = document.querySelector(".panel__title");
+             const authorEl = document.querySelector(".panel__author");
+             try {
+               const ytData = window.ytPlayer.getVideoData();
+               if (titleEl && ytData.title) titleEl.innerText = ytData.title;
+               if (authorEl && ytData.author) authorEl.innerText = ytData.author;
+             } catch(e) {}
           } else {
              const titleEl = document.querySelector(".panel__title");
              const authorEl = document.querySelector(".panel__author");
