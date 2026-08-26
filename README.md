@@ -15,6 +15,7 @@ Vibe Room is a mood-driven web radio experience built around 90s and 2000s Bolly
   - no station configured
   - nothing playable in the feed
   - YouTube not reachable or blocked
+- Uninterrupted background playback capability (use Desktop Mode on mobile browsers).
 
 ### Music Curation Controls
 
@@ -72,6 +73,15 @@ Built-in keyboard shortcuts are exposed in a dedicated help modal:
 - YouTube iframe/player integration
 - Supabase-backed realtime/presence features for online count and rooms
 - Browser `localStorage` persistence for user preferences
+- Firebase Realtime Database for dynamic YouTube API key management
+
+## Configuration
+
+The application requires a YouTube Data API v3 key to fetch playlist tracks.
+To configure this:
+1. Go to Firebase Console → Realtime Database.
+2. Create a node named `youtube_api_keys`.
+3. Add your real YouTube Data API v3 key as a string (or an array/object if your schema requires it). The UI will gracefully notify you if this is missing.
 
 ## Project Structure
 
