@@ -7,7 +7,13 @@ class PlaylistUI {
     this.init();
   }
 
-  async init() {
+async init() {
+    window.addEventListener('customQueueChanged', () => {
+      const overlay = document.getElementById("queueModalOverlay");
+      if (overlay && overlay.classList.contains("active")) {
+        this.renderQueue();
+      }
+    });
     await this.fetchKeys();
     this.injectStyles();
     this.injectGlobalSearch();
@@ -511,8 +517,7 @@ injectButton() {
     document.getElementById("queueSubtitle").innerText = `${window.customQueue.length} tracks (drag to reorder)`;
     tracksEl.innerHTML = "";
     
-    let dragStartIndex = -1;
-
+let dragStartIndex = -1;
     window.customQueue.forEach((track, index) => {
       const item = document.createElement("div");
       item.className = "track-item";
@@ -557,7 +562,7 @@ injectButton() {
       item.addEventListener("dragstart", (e) => {
         dragStartIndex = index;
         e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", index);
+        e.dataTransfer.setData("text/plain", index.toString());
         setTimeout(() => item.classList.add("dragging"), 0);
       });
       
@@ -583,9 +588,12 @@ injectButton() {
       item.addEventListener("drop", (e) => {
         e.stopPropagation();
         e.preventDefault();
+        const dragStartIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
         const dragEndIndex = index;
-        if (dragStartIndex !== -1 && dragStartIndex !== dragEndIndex) {
-          const draggedItem = window.customQueue.splice(dragStartIndex, 1)[0];
+        
+        if (!isNaN(dragStartIndex) && dragStartIndex !== dragEndIndex && dragStartIndex >= 0 && dragStartIndex < window.customQueue.length) {
+          const draggedItem = window.customQueue[dragStartIndex];
+          window.customQueue.splice(dragStartIndex, 1);
           window.customQueue.splice(dragEndIndex, 0, draggedItem);
           this.renderQueue(); // Re-render in new order
         }
