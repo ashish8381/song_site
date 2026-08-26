@@ -149,7 +149,7 @@ class PlaylistUI {
         border: 1px solid rgba(255,255,255,0.15);
         padding: 6px 12px; border-radius: 20px;
         font-family: inherit; font-size: 13px; font-weight: 600;
-        cursor: pointer; z-index: 100;
+        cursor: pointer; z-index: 9999;
         display: flex; align-items: center; gap: 6px; transition: all 0.2s;
       }
       .playlist-toggle-btn:hover { background: rgba(255,255,255,0.15); color: white; }
@@ -203,7 +203,7 @@ class PlaylistUI {
       .track-play-icon { opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
       .track-item:hover .track-play-icon { opacity: 1; }
       
-      .global-search-container { margin: 10px 16px 20px; position: relative; z-index: 100; }
+      .global-search-container { margin: 10px 16px 20px; position: relative; z-index: 9999; }
       .search-input-wrapper { position: relative; }
       #globalTrackSearch {
         width: 100%; padding: 12px 14px; background: rgba(255, 255, 255, 0.08);
@@ -235,8 +235,8 @@ class PlaylistUI {
 
   injectGlobalSearch() {
     const mountSearch = () => {
-      const panelCard = document.querySelector(".panel__card");
-      if (panelCard && !panelCard.querySelector(".global-search-container")) {
+      const tuner = document.querySelector(".tuner");
+      if (tuner && tuner.parentNode && !tuner.parentNode.querySelector(".global-search-container")) {
         const container = document.createElement("div");
         container.className = "global-search-container";
         container.innerHTML = `
@@ -245,12 +245,7 @@ class PlaylistUI {
             <div id="searchResults" class="search-results-dropdown"></div>
           </div>
         `;
-        const tuner = panelCard.querySelector(".tuner");
-        if (tuner) {
-          panelCard.insertBefore(container, tuner);
-        } else {
-          panelCard.appendChild(container);
-        }
+        tuner.parentNode.insertBefore(container, tuner);
         this.setupGlobalSearch();
       }
     };
