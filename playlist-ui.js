@@ -304,7 +304,7 @@ getActiveApiKey() {
         resultsContainer.style.display = "flex";
 
 try {
-          const data = await this.fetchYoutubeApi(key => `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(query)}&key=${key}`);
+          const data = await this.fetchYoutubeApi(key => `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=5&q=${encodeURIComponent(query)}&key=${key}`);
           
           if (data.error) {
             resultsContainer.innerHTML = `<div class="search-msg" style="color:#ff5555;">${data.error.message || "Quota exhausted"}</div>`;
