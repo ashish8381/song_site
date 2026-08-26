@@ -40,7 +40,7 @@ Vibe Room is a mood-driven web radio experience built around 90s and 2000s Bolly
 
 - Live online count in the top bar.
 - Shared room presence and roster.
-- Emoji reactions with four mapped shortcuts.
+- Emoji reactions with six mapped shortcuts.
 - Clipboard-based invite sharing.
 
 ### Keyboard And Accessibility Features
@@ -54,7 +54,7 @@ Built-in keyboard shortcuts are exposed in a dedicated help modal:
 - `T` - next station
 - `L` - love current song
 - `X` - ban current song
-- `1-4` - react in a room
+- `1-6` - react in a room
 - `?` - open keyboard shortcut list
 
 ## Visual / UX Highlights
