@@ -252,7 +252,7 @@ getActiveApiKey() {
       .track-info { flex: 1; overflow: hidden; }
       .track-title { margin: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .track-author { margin: 4px 0 0 0; font-size: 13px; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .playlist-item-actions { opacity: 0; transition: opacity 0.15s; }
+      .playlist-item-actions { opacity: 1; transition: opacity 0.15s; }
       .track-item:hover .playlist-item-actions { opacity: 1; }
       
       .global-search-container { margin: 10px 16px 20px; position: relative; z-index: 9999; }
@@ -679,11 +679,30 @@ let dragStartIndex = -1;
           <p class="track-author">${track.author}</p>
         </div>
         <div class="search-actions playlist-item-actions">
+          <button class="search-btn play-btn" title="Play Now">▶️</button>
           <button class="search-btn queue-btn" title="Add to Queue">➕</button>
         </div>
       `;
 
       const queueBtn = item.querySelector(".queue-btn");
+      const playBtn = item.querySelector(".play-btn");
+
+      playBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!window.ytPlayer) return;
+        const p = window.ytPlayer;
+        if (this.usingPlayerOrder) {
+          try { p.playVideoAt(index); } catch (e) {}
+          setTimeout(() => { if (p.getPlayerState() !== 1) p.playVideo(); }, 200);
+        } else {
+          try { 
+            p.loadVideoById(track.id); 
+            window.customActiveTrack = { id: track.id, title: track.title, author: track.author, thumb: track.thumb };
+          } catch (e) {}
+        }
+        this.closeModal();
+      });
+
       queueBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         window.customQueue = window.customQueue || [];
