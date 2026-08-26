@@ -282,6 +282,9 @@ getActiveApiKey() {
       }
       .search-btn:hover { background: rgba(255,255,255,0.25); }
 
+      .track-item.dragging { opacity: 0.4; background: rgba(255,255,255,0.05); }
+      .track-item.drag-over { border-top: 2px solid rgba(255,255,255,0.8); background: rgba(255,255,255,0.1); }
+
       .playlist-loading { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); font-size: 14px; }
     `;
     document.head.appendChild(style);
@@ -505,16 +508,20 @@ injectButton() {
       return;
     }
 
-    document.getElementById("queueSubtitle").innerText = `${window.customQueue.length} tracks`;
+    document.getElementById("queueSubtitle").innerText = `${window.customQueue.length} tracks (drag to reorder)`;
     tracksEl.innerHTML = "";
     
+    let dragStartIndex = -1;
+
     window.customQueue.forEach((track, index) => {
       const item = document.createElement("div");
       item.className = "track-item";
+      item.draggable = true;
+      
       item.innerHTML = `
-        <div class="track-index">${index + 1}</div>
-        <img src="${track.thumb}" class="track-thumb" loading="lazy" />
-        <div class="track-info">
+        <div class="track-index" style="cursor: grab;">${index + 1}</div>
+        <img src="${track.thumb}" class="track-thumb" loading="lazy" style="pointer-events: none;" />
+        <div class="track-info" style="pointer-events: none;">
           <h4 class="track-title">${track.title}</h4>
           <p class="track-author">${track.author}</p>
         </div>
@@ -545,6 +552,44 @@ injectButton() {
         }
         this.closeQueueModal();
       };
+
+      // HTML5 Drag and Drop Events
+      item.addEventListener("dragstart", (e) => {
+        dragStartIndex = index;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", index);
+        setTimeout(() => item.classList.add("dragging"), 0);
+      });
+      
+      item.addEventListener("dragend", () => {
+        item.classList.remove("dragging");
+        tracksEl.querySelectorAll(".track-item").forEach(el => el.classList.remove("drag-over"));
+      });
+      
+      item.addEventListener("dragover", (e) => {
+        e.preventDefault(); // Necessary to allow dropping
+        e.dataTransfer.dropEffect = "move";
+      });
+      
+      item.addEventListener("dragenter", (e) => {
+        e.preventDefault();
+        if (index !== dragStartIndex) item.classList.add("drag-over");
+      });
+      
+      item.addEventListener("dragleave", (e) => {
+        item.classList.remove("drag-over");
+      });
+      
+      item.addEventListener("drop", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const dragEndIndex = index;
+        if (dragStartIndex !== -1 && dragStartIndex !== dragEndIndex) {
+          const draggedItem = window.customQueue.splice(dragStartIndex, 1)[0];
+          window.customQueue.splice(dragEndIndex, 0, draggedItem);
+          this.renderQueue(); // Re-render in new order
+        }
+      });
 
       tracksEl.appendChild(item);
     });
