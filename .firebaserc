@@ -1,12 +1,20 @@
 {
   "projects": {
-    "default": "ashish827-2999a"
+    "default": "ashish827-2999a",
+    "temp": "echo-music-33883"
   },
   "targets": {
     "ashish827-2999a": {
       "hosting": {
         "viberoom": [
           "viberoom"
+        ]
+      }
+    },
+    "echo-music-33883": {
+      "hosting": {
+        "viberoom-temp": [
+          "viberoom-temp"
         ]
       }
     }
