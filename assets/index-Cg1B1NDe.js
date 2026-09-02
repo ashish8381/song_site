@@ -21453,13 +21453,22 @@ function d_({ room: t }) {
                   ? `${i} ${i === 1 ? "person" : "people"}`
                   : "connecting…",
             }),
-            d
-              ? w.jsx("span", {
-                  className: "roombar__locked",
-                  title: "Someone else is picking the music",
-                  children: "DJ mode",
-                })
-              : w.jsx("button", {
+            d ? w.jsx("button", {
+                  type: "button",
+                  className: "roombar__lock",
+                  onClick: (e) => {
+                    if (window.requestAuxCooldown) {
+                        t.notice("Wait a few seconds before requesting again");
+                        return;
+                    }
+                    window.requestAuxCooldown = true;
+                    setTimeout(() => window.requestAuxCooldown = false, 10000);
+                    t.broadcast({ kind: "request_lock", requesterName: t.name || "Someone", requesterId: t.selfId });
+                    t.notice("Requested aux from DJ");
+                  },
+                  title: "Request control of the music",
+                  children: "Request Aux",
+                }) : w.jsx("button", {
                   type: "button",
                   className: `roombar__lock${l ? " is-on" : ""}`,
                   onClick: c,
@@ -21526,6 +21535,18 @@ function d_({ room: t }) {
                         className: "people__tag people__tag--dj",
                         children: "DJ",
                       }),
+                    (l && O.id !== o) && w.jsx("button", {
+                        className: "people__tag",
+                        style: { cursor: "pointer", background: "rgba(255,204,0,0.8)", color: "black", fontWeight: "bold", border: "none" },
+                        onClick: () => {
+                            if (!window.confirm("Make " + O.name + " the DJ?")) return;
+                            t.setLock(O.id);
+                            t.broadcast({ kind: "lock", seq: Date.now(), actor: t.selfId, name: t.name || "DJ", lockedBy: O.id });
+                            t.notice("Transferred aux to " + O.name);
+                        },
+                        title: "Transfer music control to this person",
+                        children: "Make DJ"
+                    }),
                   ],
                 },
                 O.id,
@@ -23071,6 +23092,43 @@ function V_(t) {
             Q(L, $n(b.name) || "Someone", !1);
             return;
           }
+          if (b.kind === "request_lock") {
+            const currentDj = le.current;
+            if (currentDj === E) {
+              const notif = document.createElement("div");
+              notif.style.position = "fixed";
+              notif.style.top = "20px";
+              notif.style.left = "50%";
+              notif.style.transform = "translateX(-50%)";
+              notif.style.background = "rgba(20,20,20,0.95)";
+              notif.style.border = "1px solid rgba(255,255,255,0.15)";
+              notif.style.padding = "16px";
+              notif.style.borderRadius = "12px";
+              notif.style.zIndex = "99999";
+              notif.style.color = "white";
+              notif.style.boxShadow = "0 8px 32px rgba(0,0,0,0.5)";
+              notif.style.backdropFilter = "blur(10px)";
+              notif.style.display = "flex";
+              notif.style.alignItems = "center";
+              notif.style.gap = "16px";
+              notif.innerHTML = `<span style="font-size:14px"><b>${b.requesterName}</b> wants to take the aux.</span>
+                 <div style="display:flex;gap:8px">
+                   <button id="denyAux-${b.requesterId}" style="padding:6px 12px;background:rgba(255,255,255,0.1);border:none;border-radius:6px;color:white;cursor:pointer;font-size:13px;font-family:inherit">Ignore</button>
+                   <button id="grantAux-${b.requesterId}" style="padding:6px 12px;background:rgba(255,204,0,0.8);color:black;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;font-family:inherit">Grant</button>
+                 </div>`;
+              document.body.appendChild(notif);
+              
+              document.getElementById(`denyAux-${b.requesterId}`).onclick = () => notif.remove();
+              document.getElementById(`grantAux-${b.requesterId}`).onclick = () => {
+                 h(b.requesterId);
+                 x.current += 1;
+                 be({ kind: "lock", seq: x.current, actor: E, name: (typeof G !== "undefined" ? G.current : "DJ"), lockedBy: b.requesterId });
+                 notif.remove();
+              };
+              setTimeout(() => { if (document.body.contains(notif)) notif.remove(); }, 15000);
+            }
+            return;
+          }
           if (b.kind === "lock") {
             if (b.seq < x.current || (b.seq === x.current && b.actor <= E))
               return;
@@ -23345,8 +23403,7 @@ function V_(t) {
     create: ve,
     join: wt,
     leave: Xs,
-    actions: Jo,
-  };
+    actions: Jo, broadcast: be, setLock: h };
 }
 function W_() {
   const t = _.useRef(null),
