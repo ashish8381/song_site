@@ -163,8 +163,7 @@ setInterval(() => {
         if (currentRoomKey !== room.roomKey) {
             startChatSession(room.roomKey);
             toggleBtn.style.display = "flex";
-            chatContainer.style.transform = "translateX(0)"; // auto open chat when joining
-            setTimeout(() => { toggleBtn.style.display = "none"; }, 50);
+            chatContainer.style.transform = "translateX(100%)";
         }
     } else {
         if (chatContainer) {
