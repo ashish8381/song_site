@@ -1,4 +1,27 @@
 import { ref, push, onChildAdded, onValue, set, serverTimestamp, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
+console.log("Chat UI script loaded!");
+
+
+
+function getStandaloneRoom() {
+    const roomKey = sessionStorage.getItem("vibe-room-fm:room");
+    if (!roomKey) return null;
+    
+    let nameStr = localStorage.getItem("vibe-room-fm:name");
+    let name = "Anonymous";
+    if (nameStr) {
+        try { name = JSON.parse(nameStr); } catch(e) { name = nameStr; }
+    }
+    
+    let selfId = sessionStorage.getItem("vibe-room-fm:chat-self-id");
+    if (!selfId) {
+        selfId = Math.random().toString(36).substring(2, 11);
+        sessionStorage.setItem("vibe-room-fm:chat-self-id", selfId);
+    }
+    
+    return { active: true, roomKey: roomKey, name: name, selfId: selfId };
+}
+
 
 let chatContainer = null;
 let toggleBtn = null;
@@ -98,7 +121,7 @@ function initChatUI() {
         const db = window.firebaseDatabase;
         if (!db) return;
         
-        const room = window.currentVibeRoom;
+        const room = getStandaloneRoom();
         const msgRef = push(ref(db, \`_rooms/\${currentRoomKey}/chat\`));
         onDisconnect(msgRef).remove(); await set(msgRef, {
             text: text,
@@ -115,7 +138,7 @@ function appendMessage(msg) {
     const messagesDiv = document.getElementById("vibe-chat-messages");
     if (!messagesDiv) return;
     
-    const room = window.currentVibeRoom || {};
+    const room = getStandaloneRoom() || {};
     const isSelf = msg.senderId === room.selfId;
     
     const el = document.createElement("div");
@@ -157,7 +180,9 @@ function startChatSession(roomKey) {
 }
 
 setInterval(() => {
-    const room = window.currentVibeRoom;
+    const __r = getStandaloneRoom();
+    // console.log("Chat tick, room:", __r);
+    const room = getStandaloneRoom();
     if (room && room.active) {
         initChatUI();
         if (currentRoomKey !== room.roomKey) {
