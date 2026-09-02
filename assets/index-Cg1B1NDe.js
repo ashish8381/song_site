@@ -23383,6 +23383,7 @@ function V_(t) {
       }),
       [D, zt, ct, Yn, Xn, Zn, Zs],
     );
+  window.currentVibeRoom = { active: P, roomKey: e, name: u, selfId: E, roster: i };
   return {
     active: P,
     roomKey: e,
