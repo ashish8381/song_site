@@ -753,10 +753,22 @@ let dragStartIndex = -1;
           try { p.playVideoAt(index); } catch (e) {}
           setTimeout(() => { if (p.getPlayerState() !== 1) p.playVideo(); }, 200);
         } else {
-          try { 
-            p.loadVideoById(track.id); 
+          const playerIds = p.getPlaylist ? (p.getPlaylist() || []) : [];
+          const playerIdx = playerIds.indexOf(track.id);
+          
+          if (playerIdx !== -1) {
+            // The video is loaded in the player's current playlist.
+            // YT API bug: playVideoAt expects the ORIGINAL playlist index, not the shuffled index.
+            try { p.playVideoAt(index); } catch (e) {}
+            setTimeout(() => { try { p.playVideo(); } catch(e){} }, 150);
             window.customActiveTrack = { id: track.id, title: track.title, author: track.author, thumb: track.thumb };
-          } catch (e) {}
+          } else {
+            // Video not in the first 200 items, fallback to loadVideoById
+            try { 
+              p.loadVideoById(track.id); 
+              window.customActiveTrack = { id: track.id, title: track.title, author: track.author, thumb: track.thumb };
+            } catch (e) {}
+          }
         }
         this.closeModal();
       });
@@ -777,26 +789,27 @@ let dragStartIndex = -1;
       item.addEventListener("click", () => {
         if (!window.ytPlayer) return;
         const p = window.ytPlayer;
-
         if (this.usingPlayerOrder) {
-          // Strategy 1: indexes match player order
           try { p.playVideoAt(index); } catch (e) {}
-          // playVideoAt switches track but may not auto-play — force it
-          setTimeout(() => { try { p.playVideo(); } catch(e){} }, 150);
+          setTimeout(() => { if (p.getPlayerState() !== 1) p.playVideo(); }, 200);
         } else {
-          // Strategy 2: radio mixes — find real index or use loadVideoById
           const playerIds = p.getPlaylist ? (p.getPlaylist() || []) : [];
           const playerIdx = playerIds.indexOf(track.id);
+          
           if (playerIdx !== -1) {
-            try { p.playVideoAt(playerIdx); } catch (e) {}
+            // The video is loaded in the player's current playlist.
+            // YT API bug: playVideoAt expects the ORIGINAL playlist index, not the shuffled index.
+            try { p.playVideoAt(index); } catch (e) {}
             setTimeout(() => { try { p.playVideo(); } catch(e){} }, 150);
+            window.customActiveTrack = { id: track.id, title: track.title, author: track.author, thumb: track.thumb };
           } else {
-            try { p.loadVideoById({ videoId: track.id, startSeconds: 0 }); } catch (e) {
-              try { p.loadVideoById(track.id); } catch (e2) {}
-            }
+            // Video not in the first 200 items, fallback to loadVideoById
+            try { 
+              p.loadVideoById(track.id); 
+              window.customActiveTrack = { id: track.id, title: track.title, author: track.author, thumb: track.thumb };
+            } catch (e) {}
           }
         }
-
         this.closeModal();
       });
 
