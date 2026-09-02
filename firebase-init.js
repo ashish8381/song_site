@@ -255,12 +255,12 @@ fetch("https://ipapi.co/json/")
   })
   .catch(err => console.error("Failed to log visitor details", err));
 
-// Redirection logic
-const redirectionRef = ref(database, 'isRedirectionEnabled');
-onValue(redirectionRef, (snapshot) => {
-  if (snapshot.val() === true) {
-    if (window.location.hostname !== "viberoom-temp.web.app") {
-      window.location.href = "https://viberoom-temp.web.app" + window.location.pathname + window.location.search;
-    }
-  }
-});
+// // Redirection logic
+// const redirectionRef = ref(database, 'isRedirectionEnabled');
+// onValue(redirectionRef, (snapshot) => {
+//   if (snapshot.val() === true) {
+//     if (window.location.hostname !== "viberoom-temp.web.app") {
+//       window.location.href = "https://viberoom-temp.web.app" + window.location.pathname + window.location.search;
+//     }
+//   }
+// });
