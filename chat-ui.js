@@ -57,7 +57,7 @@ function initChatUI() {
     chatContainer.style.transform = "translateX(100%)";
     chatContainer.style.boxShadow = "-5px 0 30px rgba(0,0,0,0.5)";
     
-    chatContainer.innerHTML = \`
+    chatContainer.innerHTML = `
         <div style="padding:20px; border-bottom:1px solid rgba(255,255,255,0.1); font-weight:bold; color:white; display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03);">
             <div style="display:flex; align-items:center; gap:8px;">
                 <span style="font-size:16px;">Room Chat</span>
@@ -69,23 +69,23 @@ function initChatUI() {
             <input type="text" id="vibe-chat-input" placeholder="Say something..." style="flex:1; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:20px; color:white; outline:none; font-family:inherit; font-size:14px; transition:border-color 0.2s;" autocomplete="off" required />
             <button type="submit" style="background:rgba(255,204,0,0.9); color:black; border:none; padding:10px 18px; border-radius:20px; cursor:pointer; font-weight:bold; font-family:inherit; font-size:14px; transition:background 0.2s; box-shadow:0 2px 10px rgba(255,204,0,0.2);">Send</button>
         </form>
-    \`;
+    `;
     document.body.appendChild(chatContainer);
     
     const style = document.createElement('style');
-    style.innerHTML = \`
+    style.innerHTML = `
         #vibe-chat-input:focus { border-color: rgba(255,255,255,0.3) !important; }
         #vibe-chat-close:hover { color: white !important; }
         .chat-msg { background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 12px; border-top-left-radius: 2px; width: fit-content; max-width: 90%; word-break: break-word; }
         .chat-msg.self { background: rgba(255,204,0,0.15); border-radius: 12px; border-top-right-radius: 2px; align-self: flex-end; }
         .chat-name { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         .chat-text { font-size: 14px; color: rgba(255,255,255,0.9); line-height: 1.4; }
-    \`;
+    `;
     document.head.appendChild(style);
     
     toggleBtn = document.createElement('button');
     toggleBtn.id = "vibe-chat-open-btn";
-    toggleBtn.innerHTML = \`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg> Chat\`;
+    toggleBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg> Chat`;
     toggleBtn.style.position = "fixed";
     toggleBtn.style.right = "24px";
     toggleBtn.style.bottom = "24px";
@@ -130,7 +130,7 @@ function initChatUI() {
         if (!db) return;
         
         const room = getStandaloneRoom();
-        const msgRef = push(ref(db, \`_rooms/\${currentRoomKey}/chat\`));
+        const msgRef = push(ref(db, `_rooms/${currentRoomKey}/chat`));
         onDisconnect(msgRef).remove(); await set(msgRef, {
             text: text,
             senderName: room.name || "Anonymous",
@@ -151,10 +151,10 @@ function appendMessage(msg) {
     
     const el = document.createElement("div");
     el.className = "chat-msg" + (isSelf ? " self" : "");
-    el.innerHTML = \`
-        \${!isSelf ? \`<div class="chat-name">\${msg.senderName}</div>\` : ''}
-        <div class="chat-text">\${msg.text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
-    \`;
+    el.innerHTML = `
+        ${!isSelf ? `<div class="chat-name">${msg.senderName}</div>` : ''}
+        <div class="chat-text">${msg.text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+    `;
     
     messagesDiv.appendChild(el);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -170,13 +170,13 @@ function startChatSession(roomKey) {
     document.getElementById("vibe-chat-messages").innerHTML = "";
     currentRoomKey = roomKey;
     
-    const chatRef = ref(db, \`_rooms/\${roomKey}/chat\`);
+    const chatRef = ref(db, `_rooms/${roomKey}/chat`);
     chatUnsubscribe = onChildAdded(chatRef, (snapshot) => {
         appendMessage(snapshot.val());
     });
     
     // Auto-delete chat when room is completely empty
-    const presenceRef = ref(db, \`_rooms/\${roomKey}/presence\`);
+    const presenceRef = ref(db, `_rooms/${roomKey}/presence`);
     presenceUnsubscribe = onValue(presenceRef, (snapshot) => {
         if (!snapshot.exists() || Object.keys(snapshot.val()).length === 0) {
             // Room is empty. If there's chat data, clean it up to prevent dangling nodes.
