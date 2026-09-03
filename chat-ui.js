@@ -202,3 +202,19 @@ setInterval(() => {
         }
     }
 }, 1000);
+
+
+setTimeout(() => {
+    if (!document.getElementById("vibe-chat-open-btn")) {
+        let dbg = document.createElement('div');
+        dbg.style.position = 'fixed';
+        dbg.style.top = '10px';
+        dbg.style.left = '10px';
+        dbg.style.background = 'red';
+        dbg.style.color = 'white';
+        dbg.style.padding = '10px';
+        dbg.style.zIndex = '999999';
+        dbg.innerHTML = "CHAT SCRIPT IS RUNNING BUT BUTTON NOT SHOWN!";
+        document.body.appendChild(dbg);
+    }
+}, 5000);
