@@ -237,53 +237,6 @@ setInterval(() => {
 }, 1000);
 
 
-setTimeout(() => {
-    if (!document.getElementById("vibe-chat-open-btn")) {
-        let dbg = document.createElement('div');
-        dbg.style.position = 'fixed';
-        dbg.style.top = '10px';
-        dbg.style.left = '10px';
-        dbg.style.background = 'red';
-        dbg.style.color = 'white';
-        dbg.style.padding = '10px';
-        dbg.style.zIndex = '999999';
-        dbg.innerHTML = "CHAT SCRIPT IS RUNNING BUT BUTTON NOT SHOWN!";
-        document.body.appendChild(dbg);
-    }
-}, 5000);
 
-try {
-    let testBtn = document.createElement('div');
-    testBtn.innerHTML = "💬 Force Open Chat";
-    testBtn.style.position = "fixed";
-    testBtn.style.left = "20px";
-    testBtn.style.bottom = "20px";
-    testBtn.style.background = "green";
-    testBtn.style.color = "white";
-    testBtn.style.padding = "10px 15px";
-    testBtn.style.zIndex = "999999";
-    testBtn.style.borderRadius = "20px";
-    testBtn.style.cursor = "pointer";
-    testBtn.style.fontWeight = "bold";
-    testBtn.style.boxShadow = "0 4px 10px rgba(0,0,0,0.5)";
-    
-    testBtn.onclick = () => {
-        if (!chatContainer) {
-            initChatUI();
-        }
-        if (chatContainer) {
-            chatContainer.style.transform = "translateX(0)";
-            if (toggleBtn) toggleBtn.style.display = "none";
-        }
-        testBtn.style.display = "none";
-        // Force start session if we can
-        let r = getStandaloneRoom();
-        if (r && r.roomKey && currentRoomKey !== r.roomKey) {
-            startChatSession(r.roomKey);
-        }
-    };
-    
-    document.body.appendChild(testBtn);
-} catch(e) {
-    console.error("Failed to add force btn", e);
-}
+
+
