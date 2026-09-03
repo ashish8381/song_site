@@ -202,14 +202,42 @@ function startChatSession(roomKey) {
     
     // Auto-delete chat when room is completely empty
     const presenceRef = ref(db, `_rooms/${roomKey}/presence`);
-    presenceUnsubscribe = onValue(presenceRef, (snapshot) => {
+    let initialPresenceLoad = true;
+    setTimeout(() => { initialPresenceLoad = false; }, 2000);
+    
+    const valueUnsub = onValue(presenceRef, (snapshot) => {
         if (!snapshot.exists() || Object.keys(snapshot.val()).length === 0) {
-            // Room is empty. If there's chat data, clean it up to prevent dangling nodes.
-            // Wait, we shouldn't delete it instantly if we just temporarily disconnected.
-            // Let's only delete if we receive an explicit empty presence while we are connected.
             remove(chatRef).catch(()=>console.log("Failed to clean up chat or already clean"));
         }
     });
+    
+    const joinUnsub = onChildAdded(presenceRef, (snapshot) => {
+        if (!initialPresenceLoad) {
+            const val = snapshot.val();
+            const name = val && val.name ? val.name : "Someone";
+            const room = getStandaloneRoom();
+            if (!room || name !== room.name) {
+                sendNotification(name + " joined the room", "Say hi!");
+            }
+        }
+    });
+    
+    const leaveUnsub = onChildRemoved(presenceRef, (snapshot) => {
+        if (!initialPresenceLoad) {
+            const val = snapshot.val();
+            const name = val && val.name ? val.name : "Someone";
+            const room = getStandaloneRoom();
+            if (!room || name !== room.name) {
+                sendNotification(name + " left the room", "They have disconnected.");
+            }
+        }
+    });
+    
+    presenceUnsubscribe = () => {
+        valueUnsub();
+        joinUnsub();
+        leaveUnsub();
+    };
 }
 
 setInterval(() => {
