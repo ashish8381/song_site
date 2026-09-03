@@ -1,7 +1,21 @@
-import { ref, push, onChildAdded, onValue, set, serverTimestamp, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
+import { ref, push, onChildAdded, onValue, set, serverTimestamp, remove, onDisconnect, onChildRemoved } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
 console.log("Chat UI script loaded!");
 
 
+
+
+function sendNotification(title, body) {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") {
+        new Notification(title, { body: body, icon: "/assets/poster.png" });
+    } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                new Notification(title, { body: body, icon: "/assets/poster.png" });
+            }
+        });
+    }
+}
 
 function getStandaloneRoom() {
     if (window.currentVibeRoom && window.currentVibeRoom.active) {
@@ -40,6 +54,9 @@ let presenceUnsubscribe = null;
 function initChatUI() {
     if (chatContainer) return;
 
+    if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+        Notification.requestPermission();
+    }
     chatContainer = document.createElement('div');
     chatContainer.id = "vibe-chat-container";
     chatContainer.style.position = "fixed";
@@ -142,12 +159,18 @@ function initChatUI() {
     };
 }
 
+let initialMessagesLoaded = false;
 function appendMessage(msg) {
     const messagesDiv = document.getElementById("vibe-chat-messages");
     if (!messagesDiv) return;
     
     const room = getStandaloneRoom() || {};
     const isSelf = msg.senderId === room.selfId;
+    if (!isSelf && initialMessagesLoaded) {
+        if (document.hidden || (chatContainer && chatContainer.style.transform !== "translateX(0px)" && chatContainer.style.transform !== "translateX(0)")) {
+            sendNotification("New message from " + (msg.senderName || "Someone"), msg.text);
+        }
+    }
     
     const el = document.createElement("div");
     el.className = "chat-msg" + (isSelf ? " self" : "");
@@ -168,6 +191,8 @@ function startChatSession(roomKey) {
     if (presenceUnsubscribe) presenceUnsubscribe();
     
     document.getElementById("vibe-chat-messages").innerHTML = "";
+    initialMessagesLoaded = false;
+    setTimeout(() => { initialMessagesLoaded = true; }, 1000);
     currentRoomKey = roomKey;
     
     const chatRef = ref(db, `_rooms/${roomKey}/chat`);
