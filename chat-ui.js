@@ -4,22 +4,30 @@ console.log("Chat UI script loaded!");
 
 
 function getStandaloneRoom() {
-    const roomKey = sessionStorage.getItem("vibe-room-fm:room");
-    if (!roomKey) return null;
-    
-    let nameStr = localStorage.getItem("vibe-room-fm:name");
-    let name = "Anonymous";
-    if (nameStr) {
-        try { name = JSON.parse(nameStr); } catch(e) { name = nameStr; }
+    if (window.currentVibeRoom && window.currentVibeRoom.active) {
+        return window.currentVibeRoom;
     }
-    
-    let selfId = sessionStorage.getItem("vibe-room-fm:chat-self-id");
-    if (!selfId) {
-        selfId = Math.random().toString(36).substring(2, 11);
-        sessionStorage.setItem("vibe-room-fm:chat-self-id", selfId);
+    try {
+        const roomKey = sessionStorage.getItem("vibe-room-fm:room");
+        if (!roomKey) return null;
+        
+        let nameStr = localStorage.getItem("vibe-room-fm:name");
+        let name = "Anonymous";
+        if (nameStr) {
+            try { name = JSON.parse(nameStr); } catch(e) { name = nameStr; }
+        }
+        
+        let selfId = sessionStorage.getItem("vibe-room-fm:chat-self-id");
+        if (!selfId) {
+            selfId = Math.random().toString(36).substring(2, 11);
+            sessionStorage.setItem("vibe-room-fm:chat-self-id", selfId);
+        }
+        
+        return { active: true, roomKey: roomKey, name: name, selfId: selfId };
+    } catch(e) {
+        console.error("Storage error:", e);
+        return null;
     }
-    
-    return { active: true, roomKey: roomKey, name: name, selfId: selfId };
 }
 
 
@@ -218,3 +226,39 @@ setTimeout(() => {
         document.body.appendChild(dbg);
     }
 }, 5000);
+
+try {
+    let testBtn = document.createElement('div');
+    testBtn.innerHTML = "💬 Force Open Chat";
+    testBtn.style.position = "fixed";
+    testBtn.style.left = "20px";
+    testBtn.style.bottom = "20px";
+    testBtn.style.background = "green";
+    testBtn.style.color = "white";
+    testBtn.style.padding = "10px 15px";
+    testBtn.style.zIndex = "999999";
+    testBtn.style.borderRadius = "20px";
+    testBtn.style.cursor = "pointer";
+    testBtn.style.fontWeight = "bold";
+    testBtn.style.boxShadow = "0 4px 10px rgba(0,0,0,0.5)";
+    
+    testBtn.onclick = () => {
+        if (!chatContainer) {
+            initChatUI();
+        }
+        if (chatContainer) {
+            chatContainer.style.transform = "translateX(0)";
+            if (toggleBtn) toggleBtn.style.display = "none";
+        }
+        testBtn.style.display = "none";
+        // Force start session if we can
+        let r = getStandaloneRoom();
+        if (r && r.roomKey && currentRoomKey !== r.roomKey) {
+            startChatSession(r.roomKey);
+        }
+    };
+    
+    document.body.appendChild(testBtn);
+} catch(e) {
+    console.error("Failed to add force btn", e);
+}
