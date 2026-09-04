@@ -245,10 +245,32 @@ function appendMessage(key, msg) {
     }
     
     let existingEl = document.getElementById('chat-msg-' + key);
+    
+    // Check for new reactions on our own messages to send notifications
+    if (existingEl && initialMessagesLoaded && isSelf) {
+        const oldReactionsStr = existingEl.getAttribute('data-reactions') || "{}";
+        const newReactionsStr = msg.reactions ? JSON.stringify(msg.reactions) : "{}";
+        
+        if (oldReactionsStr !== newReactionsStr) {
+            try {
+                const oldR = JSON.parse(oldReactionsStr);
+                const newR = msg.reactions || {};
+                for (const [rKey, rObj] of Object.entries(newR)) {
+                    if (!oldR[rKey] && rObj.senderId !== room.selfId) {
+                        if (document.hidden || (chatContainer && chatContainer.style.transform !== "translateX(0px)" && chatContainer.style.transform !== "translateX(0)")) {
+                            sendNotification((rObj.senderName || "Someone") + " reacted " + rObj.emoji, msg.text);
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+    }
+    
     const el = existingEl || document.createElement("div");
     el.id = 'chat-msg-' + key;
     el.className = "chat-msg" + (isSelf ? " self" : "");
     el.style.position = "relative";
+    el.setAttribute('data-reactions', msg.reactions ? JSON.stringify(msg.reactions) : "{}");
     
     const timeStr = formatTime(msg.timestamp);
     const safeText = msg.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
