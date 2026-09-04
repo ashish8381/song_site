@@ -1,4 +1,4 @@
-import { ref, push, onChildAdded, onValue, set, serverTimestamp, remove, onDisconnect, onChildRemoved } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
+import { ref, push, onChildAdded, onValue, set, serverTimestamp, remove, onDisconnect, onChildRemoved, onChildChanged, update } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
 console.log("Chat UI script loaded!");
 
 
@@ -82,9 +82,11 @@ function initChatUI() {
             <button id="vibe-chat-close" style="background:transparent; color:rgba(255,255,255,0.5); border:none; cursor:pointer; font-size:24px; line-height:1; padding:0; outline:none; transition:color 0.2s;">&times;</button>
         </div>
         <div id="vibe-chat-messages" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; scroll-behavior:smooth;"></div>
-        <form id="vibe-chat-form" style="padding:16px; border-top:1px solid rgba(255,255,255,0.1); display:flex; gap:8px; background:rgba(0,0,0,0.2);">
+        <form id="vibe-chat-form" style="padding:16px; border-top:1px solid rgba(255,255,255,0.1); display:flex; gap:8px; background:rgba(0,0,0,0.2); position:relative;">
+            <button type="button" id="vibe-emoji-btn" style="background:transparent; border:none; cursor:pointer; font-size:20px; padding:0 4px; filter:grayscale(0.5); transition:filter 0.2s;">😀</button>
             <input type="text" id="vibe-chat-input" placeholder="Say something..." style="flex:1; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:20px; color:white; outline:none; font-family:inherit; font-size:14px; transition:border-color 0.2s;" autocomplete="off" required />
             <button type="submit" style="background:rgba(255,204,0,0.9); color:black; border:none; padding:10px 18px; border-radius:20px; cursor:pointer; font-weight:bold; font-family:inherit; font-size:14px; transition:background 0.2s; box-shadow:0 2px 10px rgba(255,204,0,0.2);">Send</button>
+            <div id="vibe-emoji-picker-container" style="display:none; position:absolute; bottom:60px; left:10px; z-index:10000; box-shadow:0 10px 30px rgba(0,0,0,0.5); border-radius:8px; overflow:hidden;"></div>
         </form>
     `;
     document.body.appendChild(chatContainer);
@@ -97,8 +99,47 @@ function initChatUI() {
         .chat-msg.self { background: rgba(255,204,0,0.15); border-radius: 12px; border-top-right-radius: 2px; align-self: flex-end; }
         .chat-name { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         .chat-text { font-size: 14px; color: rgba(255,255,255,0.9); line-height: 1.4; }
+        emoji-picker { --num-columns: 6; --emoji-size: 1.2rem; --indicator-color: #ffcc00; width: 100%; max-height: 300px; }
     `;
     document.head.appendChild(style);
+
+    const emojiScript = document.createElement('script');
+    emojiScript.type = "module";
+    emojiScript.src = "https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js";
+    document.head.appendChild(emojiScript);
+    
+    setTimeout(() => {
+        const pickerContainer = document.getElementById("vibe-emoji-picker-container");
+        const emojiBtn = document.getElementById("vibe-emoji-btn");
+        const input = document.getElementById("vibe-chat-input");
+        
+        const picker = document.createElement('emoji-picker');
+        picker.classList.add('light'); // or dark depending on theme, vibe is dark so let's set dark
+        picker.style.setProperty('--background', '#1f1f1f');
+        picker.style.setProperty('--border-color', 'rgba(255,255,255,0.1)');
+        pickerContainer.appendChild(picker);
+        
+        emojiBtn.onclick = (e) => {
+            e.preventDefault();
+            pickerContainer.style.display = pickerContainer.style.display === 'none' ? 'block' : 'none';
+            emojiBtn.style.filter = pickerContainer.style.display === 'none' ? 'grayscale(0.5)' : 'grayscale(0)';
+        };
+        
+        picker.addEventListener('emoji-click', event => {
+            input.value += event.detail.unicode;
+            pickerContainer.style.display = 'none';
+            emojiBtn.style.filter = 'grayscale(0.5)';
+            input.focus();
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!pickerContainer.contains(e.target) && e.target !== emojiBtn) {
+                pickerContainer.style.display = 'none';
+                emojiBtn.style.filter = 'grayscale(0.5)';
+            }
+        });
+    }, 500);
+
     
     toggleBtn = document.createElement('button');
     toggleBtn.id = "vibe-chat-open-btn";
@@ -160,7 +201,19 @@ function initChatUI() {
 }
 
 let initialMessagesLoaded = false;
-function appendMessage(msg) {
+function formatTime(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    let h = d.getHours();
+    let m = d.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12; 
+    m = m < 10 ? '0'+m : m;
+    return h + ':' + m + ' ' + ampm;
+}
+
+function appendMessage(key, msg) {
     const messagesDiv = document.getElementById("vibe-chat-messages");
     if (!messagesDiv) return;
     
@@ -172,15 +225,67 @@ function appendMessage(msg) {
         }
     }
     
-    const el = document.createElement("div");
+    let existingEl = document.getElementById('chat-msg-' + key);
+    const el = existingEl || document.createElement("div");
+    el.id = 'chat-msg-' + key;
     el.className = "chat-msg" + (isSelf ? " self" : "");
-    el.innerHTML = `
-        ${!isSelf ? `<div class="chat-name">${msg.senderName}</div>` : ''}
-        <div class="chat-text">${msg.text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
-    `;
+    el.style.position = "relative";
     
-    messagesDiv.appendChild(el);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    const timeStr = formatTime(msg.timestamp);
+    const safeText = msg.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    
+    let html = `${!isSelf ? `<div class="chat-name">${msg.senderName}</div>` : ''}`;
+    html += `<div class="chat-text" id="chat-text-${key}">${safeText}</div>`;
+    
+    html += `<div style="display:flex; justify-content:${isSelf ? 'flex-end' : 'flex-start'}; align-items:center; gap:6px; margin-top:4px;">`;
+    html += `<span class="chat-time" style="font-size:10px; color:rgba(255,255,255,0.3);">${timeStr}</span>`;
+    
+    if (isSelf) {
+        html += `
+            <button class="vibe-chat-edit" data-key="${key}" style="background:transparent; border:none; color:rgba(255,255,255,0.4); cursor:pointer; padding:0; outline:none; transition:color 0.2s;">✎</button>
+            <button class="vibe-chat-del" data-key="${key}" style="background:transparent; border:none; color:rgba(255,255,255,0.4); cursor:pointer; padding:0; outline:none; transition:color 0.2s;">🗑</button>
+        `;
+    }
+    html += `</div>`;
+    
+    el.innerHTML = html;
+    
+    if (!existingEl) {
+        messagesDiv.appendChild(el);
+    }
+    
+    if (isSelf) {
+        setTimeout(() => {
+            const editBtn = el.querySelector('.vibe-chat-edit');
+            const delBtn = el.querySelector('.vibe-chat-del');
+            if (editBtn) {
+                editBtn.onclick = () => {
+                    const currentText = document.getElementById('chat-text-' + key).innerText;
+                    const newText = prompt("Edit your message:", currentText);
+                    if (newText !== null && newText.trim() !== "" && newText !== currentText) {
+                        const db = window.firebaseDatabase;
+                        update(ref(db, `_rooms/listening-room:${currentRoomKey}/chat/${key}`), { text: newText.trim() });
+                    }
+                };
+                editBtn.onmouseenter = () => editBtn.style.color = "white";
+                editBtn.onmouseleave = () => editBtn.style.color = "rgba(255,255,255,0.4)";
+            }
+            if (delBtn) {
+                delBtn.onclick = () => {
+                    if (confirm("Delete this message?")) {
+                        const db = window.firebaseDatabase;
+                        remove(ref(db, `_rooms/listening-room:${currentRoomKey}/chat/${key}`));
+                    }
+                };
+                delBtn.onmouseenter = () => delBtn.style.color = "#ff4444";
+                delBtn.onmouseleave = () => delBtn.style.color = "rgba(255,255,255,0.4)";
+            }
+        }, 10);
+    }
+    
+    if (!existingEl) {
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
 }
 
 function startChatSession(roomKey) {
@@ -195,10 +300,25 @@ function startChatSession(roomKey) {
     setTimeout(() => { initialMessagesLoaded = true; }, 1000);
     currentRoomKey = roomKey;
     
+    
     const chatRef = ref(db, `_rooms/listening-room:${roomKey}/chat`);
-    chatUnsubscribe = onChildAdded(chatRef, (snapshot) => {
-        appendMessage(snapshot.val());
+    const addedUnsub = onChildAdded(chatRef, (snapshot) => {
+        appendMessage(snapshot.key, snapshot.val());
     });
+    const changedUnsub = onChildChanged(chatRef, (snapshot) => {
+        appendMessage(snapshot.key, snapshot.val());
+    });
+    const removedUnsub = onChildRemoved(chatRef, (snapshot) => {
+        const el = document.getElementById('chat-msg-' + snapshot.key);
+        if (el) el.remove();
+    });
+    
+    chatUnsubscribe = () => {
+        addedUnsub();
+        changedUnsub();
+        removedUnsub();
+    };
+
     
     // Auto-delete chat when room is completely empty
     const presenceRef = ref(db, `_rooms/listening-room:${roomKey}/presence`);
