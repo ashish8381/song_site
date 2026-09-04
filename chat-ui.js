@@ -147,7 +147,7 @@ function initChatUI() {
         if (!db) return;
         
         const room = getStandaloneRoom();
-        const msgRef = push(ref(db, `_rooms/${currentRoomKey}/chat`));
+        const msgRef = push(ref(db, `_rooms/listening-room:${currentRoomKey}/chat`));
         onDisconnect(msgRef).remove(); await set(msgRef, {
             text: text,
             senderName: room.name || "Anonymous",
@@ -195,13 +195,13 @@ function startChatSession(roomKey) {
     setTimeout(() => { initialMessagesLoaded = true; }, 1000);
     currentRoomKey = roomKey;
     
-    const chatRef = ref(db, `_rooms/${roomKey}/chat`);
+    const chatRef = ref(db, `_rooms/listening-room:${roomKey}/chat`);
     chatUnsubscribe = onChildAdded(chatRef, (snapshot) => {
         appendMessage(snapshot.val());
     });
     
     // Auto-delete chat when room is completely empty
-    const presenceRef = ref(db, `_rooms/${roomKey}/presence`);
+    const presenceRef = ref(db, `_rooms/listening-room:${roomKey}/presence`);
     let initialPresenceLoad = true;
     setTimeout(() => { initialPresenceLoad = false; }, 2000);
     
