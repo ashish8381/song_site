@@ -178,9 +178,20 @@ function initChatUI() {
         toggleBtn.style.display = "flex";
     };
     
+    const input = document.getElementById("vibe-chat-input");
+    const submitBtn = document.querySelector("#vibe-chat-form button[type='submit']");
+    
+    // Listen for Escape to cancel edit
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && window.vibeEditingMessageKey) {
+            window.vibeEditingMessageKey = null;
+            input.value = "";
+            submitBtn.innerText = "Send";
+        }
+    });
+    
     document.getElementById("vibe-chat-form").onsubmit = async (e) => {
         e.preventDefault();
-        const input = document.getElementById("vibe-chat-input");
         const text = input.value.trim();
         if (!text || !currentRoomKey) return;
         
@@ -188,13 +199,21 @@ function initChatUI() {
         if (!db) return;
         
         const room = getStandaloneRoom();
-        const msgRef = push(ref(db, `_rooms/listening-room:${currentRoomKey}/chat`));
-        onDisconnect(msgRef).remove(); await set(msgRef, {
-            text: text,
-            senderName: room.name || "Anonymous",
-            senderId: room.selfId,
-            timestamp: serverTimestamp()
-        });
+        
+        if (window.vibeEditingMessageKey) {
+            update(ref(db, `_rooms/listening-room:${currentRoomKey}/chat/${window.vibeEditingMessageKey}`), { text: text });
+            window.vibeEditingMessageKey = null;
+            submitBtn.innerText = "Send";
+        } else {
+            const msgRef = push(ref(db, `_rooms/listening-room:${currentRoomKey}/chat`));
+            onDisconnect(msgRef).remove(); 
+            await set(msgRef, {
+                text: text,
+                senderName: room.name || "Anonymous",
+                senderId: room.selfId,
+                timestamp: serverTimestamp()
+            });
+        }
         
         input.value = "";
     };
@@ -219,7 +238,7 @@ function appendMessage(key, msg) {
     
     const room = getStandaloneRoom() || {};
     const isSelf = msg.senderId === room.selfId;
-    if (!isSelf && initialMessagesLoaded) {
+    if (!isSelf && initialMessagesLoaded && !document.getElementById('chat-msg-' + key)) {
         if (document.hidden || (chatContainer && chatContainer.style.transform !== "translateX(0px)" && chatContainer.style.transform !== "translateX(0)")) {
             sendNotification("New message from " + (msg.senderName || "Someone"), msg.text);
         }
@@ -234,16 +253,44 @@ function appendMessage(key, msg) {
     const timeStr = formatTime(msg.timestamp);
     const safeText = msg.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
     
-    let html = `${!isSelf ? `<div class="chat-name">${msg.senderName}</div>` : ''}`;
+    let reactMenuHtml = `<div id="react-menu-${key}" class="quick-react-menu" style="display:none; position:absolute; ${isSelf ? 'right:0;' : 'left:0;'} top:-35px; background:#222; padding:6px 10px; border-radius:20px; box-shadow:0 4px 12px rgba(0,0,0,0.5); z-index:100; gap:10px; border:1px solid rgba(255,255,255,0.1);">`;
+    const emojis = ['👍','❤️','😂','😮','😢','🙏'];
+    emojis.forEach(e => {
+        reactMenuHtml += `<span class="quick-react-emoji" data-msg="${key}" data-emoji="${e}" style="cursor:pointer; font-size:18px; transition:transform 0.2s;">${e}</span>`;
+    });
+    reactMenuHtml += `</div>`;
+    
+    let html = reactMenuHtml;
+    html += `${!isSelf ? `<div class="chat-name">${msg.senderName}</div>` : ''}`;
     html += `<div class="chat-text" id="chat-text-${key}">${safeText}</div>`;
     
-    html += `<div style="display:flex; justify-content:${isSelf ? 'flex-end' : 'flex-start'}; align-items:center; gap:6px; margin-top:4px;">`;
+    let reactionHtml = '<div class="reactions-container" style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">';
+    if (msg.reactions) {
+        const counts = {};
+        const userReactions = {};
+        Object.entries(msg.reactions).forEach(([rKey, rObj]) => {
+            counts[rObj.emoji] = (counts[rObj.emoji] || 0) + 1;
+            if (rObj.senderId === room.selfId) userReactions[rObj.emoji] = rKey;
+        });
+        Object.entries(counts).forEach(([emoji, count]) => {
+            const hasReacted = !!userReactions[emoji];
+            const bg = hasReacted ? 'rgba(255,204,0,0.3)' : 'rgba(255,255,255,0.05)';
+            const br = hasReacted ? '1px solid rgba(255,204,0,0.5)' : '1px solid rgba(255,255,255,0.1)';
+            reactionHtml += `<div class="reaction-pill" data-msg="${key}" data-emoji="${emoji}" data-rkey="${userReactions[emoji] || ''}" style="background:${bg}; border:${br}; padding:2px 6px; border-radius:12px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:background 0.2s;">${emoji} <span style="font-size:10px; opacity:0.8;">${count}</span></div>`;
+        });
+    }
+    reactionHtml += '</div>';
+    html += reactionHtml;
+    
+    html += `<div style="display:flex; justify-content:${isSelf ? 'flex-end' : 'flex-start'}; align-items:center; gap:8px; margin-top:4px;">`;
     html += `<span class="chat-time" style="font-size:10px; color:rgba(255,255,255,0.3);">${timeStr}</span>`;
+    
+    html += `<button class="vibe-chat-react" data-key="${key}" style="background:transparent; border:none; color:rgba(255,255,255,0.4); cursor:pointer; padding:0; outline:none; transition:color 0.2s; font-size:12px;" title="React">😀<span style="font-size:8px">+</span></button>`;
     
     if (isSelf) {
         html += `
-            <button class="vibe-chat-edit" data-key="${key}" style="background:transparent; border:none; color:rgba(255,255,255,0.4); cursor:pointer; padding:0; outline:none; transition:color 0.2s;">✎</button>
-            <button class="vibe-chat-del" data-key="${key}" style="background:transparent; border:none; color:rgba(255,255,255,0.4); cursor:pointer; padding:0; outline:none; transition:color 0.2s;">🗑</button>
+            <button class="vibe-chat-edit" data-key="${key}" style="background:transparent; border:none; color:rgba(255,255,255,0.4); cursor:pointer; padding:0; outline:none; transition:color 0.2s;" title="Edit">✎</button>
+            <button class="vibe-chat-del" data-key="${key}" style="background:transparent; border:none; color:rgba(255,255,255,0.4); cursor:pointer; padding:0; outline:none; transition:color 0.2s;" title="Delete">🗑</button>
         `;
     }
     html += `</div>`;
@@ -254,18 +301,62 @@ function appendMessage(key, msg) {
         messagesDiv.appendChild(el);
     }
     
-    if (isSelf) {
-        setTimeout(() => {
+    setTimeout(() => {
+        const reactBtn = el.querySelector('.vibe-chat-react');
+        if (reactBtn) {
+            reactBtn.onclick = () => {
+                const menu = document.getElementById('react-menu-' + key);
+                document.querySelectorAll('.quick-react-menu').forEach(m => {
+                    if (m !== menu) m.style.display = 'none';
+                });
+                menu.style.display = menu.style.display === 'none' ? 'flex' : 'none';
+            };
+            reactBtn.onmouseenter = () => reactBtn.style.color = "white";
+            reactBtn.onmouseleave = () => reactBtn.style.color = "rgba(255,255,255,0.4)";
+        }
+        
+        el.querySelectorAll('.quick-react-emoji').forEach(span => {
+            span.onclick = () => {
+                const emoji = span.getAttribute('data-emoji');
+                const db = window.firebaseDatabase;
+                const msgRef = ref(db, `_rooms/listening-room:${currentRoomKey}/chat/${key}/reactions`);
+                push(msgRef).then(newRef => {
+                    set(newRef, { emoji: emoji, senderName: room.name || "Anonymous", senderId: room.selfId });
+                });
+                document.getElementById('react-menu-' + key).style.display = 'none';
+            };
+            span.onmouseenter = () => span.style.transform = 'scale(1.2)';
+            span.onmouseleave = () => span.style.transform = 'scale(1)';
+        });
+        
+        el.querySelectorAll('.reaction-pill').forEach(pill => {
+            pill.onclick = () => {
+                const rkey = pill.getAttribute('data-rkey');
+                const emoji = pill.getAttribute('data-emoji');
+                const db = window.firebaseDatabase;
+                if (rkey) {
+                    remove(ref(db, `_rooms/listening-room:${currentRoomKey}/chat/${key}/reactions/${rkey}`));
+                } else {
+                    const msgRef = ref(db, `_rooms/listening-room:${currentRoomKey}/chat/${key}/reactions`);
+                    push(msgRef).then(newRef => {
+                        set(newRef, { emoji: emoji, senderName: room.name || "Anonymous", senderId: room.selfId });
+                    });
+                }
+            };
+        });
+        
+        if (isSelf) {
             const editBtn = el.querySelector('.vibe-chat-edit');
             const delBtn = el.querySelector('.vibe-chat-del');
             if (editBtn) {
                 editBtn.onclick = () => {
                     const currentText = document.getElementById('chat-text-' + key).innerText;
-                    const newText = prompt("Edit your message:", currentText);
-                    if (newText !== null && newText.trim() !== "" && newText !== currentText) {
-                        const db = window.firebaseDatabase;
-                        update(ref(db, `_rooms/listening-room:${currentRoomKey}/chat/${key}`), { text: newText.trim() });
-                    }
+                    const input = document.getElementById("vibe-chat-input");
+                    const submitBtn = document.querySelector("#vibe-chat-form button[type='submit']");
+                    input.value = currentText;
+                    input.focus();
+                    submitBtn.innerText = "Save";
+                    window.vibeEditingMessageKey = key;
                 };
                 editBtn.onmouseenter = () => editBtn.style.color = "white";
                 editBtn.onmouseleave = () => editBtn.style.color = "rgba(255,255,255,0.4)";
@@ -280,8 +371,8 @@ function appendMessage(key, msg) {
                 delBtn.onmouseenter = () => delBtn.style.color = "#ff4444";
                 delBtn.onmouseleave = () => delBtn.style.color = "rgba(255,255,255,0.4)";
             }
-        }, 10);
-    }
+        }
+    }, 10);
     
     if (!existingEl) {
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
