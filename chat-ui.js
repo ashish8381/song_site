@@ -202,8 +202,7 @@ function startChatSession(roomKey) {
     
     // Auto-delete chat when room is completely empty
     const presenceRef = ref(db, `_rooms/listening-room:${roomKey}/presence`);
-    let initialPresenceLoad = true;
-    setTimeout(() => { initialPresenceLoad = false; }, 2000);
+    let activeMembers = new Set();
     
     const valueUnsub = onValue(presenceRef, (snapshot) => {
         if (!snapshot.exists() || Object.keys(snapshot.val()).length === 0) {
@@ -212,26 +211,36 @@ function startChatSession(roomKey) {
     });
     
     const joinUnsub = onChildAdded(presenceRef, (snapshot) => {
-        if (!initialPresenceLoad) {
-            const val = snapshot.val();
-            const name = val && val.name ? val.name : "Someone";
-            const room = getStandaloneRoom();
-            if (!room || name !== room.name) {
+        const key = snapshot.key;
+        const val = snapshot.val();
+        const name = val && val.name ? val.name : "Someone";
+        const room = getStandaloneRoom();
+        
+        if (!activeMembers.has(key)) {
+            activeMembers.add(key);
+            if (window.__vibeInitialPresenceLoaded && (!room || key !== room.selfId)) {
                 sendNotification(name + " joined the room", "Say hi!");
             }
         }
     });
     
     const leaveUnsub = onChildRemoved(presenceRef, (snapshot) => {
-        if (!initialPresenceLoad) {
-            const val = snapshot.val();
-            const name = val && val.name ? val.name : "Someone";
-            const room = getStandaloneRoom();
-            if (!room || name !== room.name) {
+        const key = snapshot.key;
+        const val = snapshot.val();
+        const name = val && val.name ? val.name : "Someone";
+        const room = getStandaloneRoom();
+        
+        if (activeMembers.has(key)) {
+            activeMembers.delete(key);
+            if (window.__vibeInitialPresenceLoaded && (!room || key !== room.selfId)) {
                 sendNotification(name + " left the room", "They have disconnected.");
             }
         }
     });
+    
+    if (window.__vibePresenceTimeout) clearTimeout(window.__vibePresenceTimeout);
+    window.__vibeInitialPresenceLoaded = false;
+    window.__vibePresenceTimeout = setTimeout(() => { window.__vibeInitialPresenceLoaded = true; }, 2500);
     
     presenceUnsubscribe = () => {
         valueUnsub();
