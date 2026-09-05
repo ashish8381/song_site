@@ -21439,7 +21439,7 @@ function d_({ room: t }) {
               onClick: N,
               title: "Copy an invite to send",
               "aria-label": `Room ${n.split("").join(" ")}. Copy an invite to send.`,
-              children: T ? "invite copied" : n,
+              children: T ? "Invite copied" : n,
             }),
             w.jsx("button", {
               type: "button",
@@ -23514,7 +23514,7 @@ function W_() {
           children: [
             w.jsx("video", {
               className: "scene__img",
-              src: "./assets/bg2.mp4",
+              src: "https://github.com/ashish8381/Projects-Details/raw/refs/heads/main/bg2.mp4",
               poster: "./assets/poster.png",
               preload: "none",
               autoPlay: !0,
