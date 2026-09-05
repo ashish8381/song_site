@@ -61,6 +61,7 @@ function createPeerConnection(peerId, roomKey, myId) {
     
     pc.onicecandidate = (e) => {
         if (e.candidate) {
+            console.log("❄️ Vibe Voice: Sending ICE candidate to", peerId);
             push(ref(window.firebaseDatabase, `_rooms/listening-room:${roomKey}/webrtc/${peerId}`), {
                 senderId: myId,
                 type: 'candidate',
@@ -103,6 +104,7 @@ function checkAndSendOffer(peerId, roomKey, myId) {
         const pc = createPeerConnection(peerId, roomKey, myId);
         pc.createOffer().then(offer => {
             return pc.setLocalDescription(offer).then(() => {
+                console.log("📤 Vibe Voice: Sending OFFER to", peerId);
                 push(ref(window.firebaseDatabase, `_rooms/listening-room:${roomKey}/webrtc/${peerId}`), {
                     senderId: myId,
                     type: 'offer',
@@ -532,7 +534,6 @@ function startChatSession(roomKey) {
         if (!myId || currentRoomKey !== roomKey) return;
         if (webrtcUnsub) webrtcUnsub();
         const sigRef = ref(db, `_rooms/listening-room:${roomKey}/webrtc/${myId}`);
-        remove(sigRef); // clear old signals
         webrtcUnsub = onChildAdded(sigRef, async (snapshot) => {
             const msg = snapshot.val();
             const peerId = msg.senderId;
@@ -541,6 +542,7 @@ function startChatSession(roomKey) {
             remove(ref(db, `_rooms/listening-room:${roomKey}/webrtc/${myId}/${msgKey}`));
             
             if (msg.type === 'offer') {
+                console.log("📥 Vibe Voice: Received OFFER from", peerId);
                 let pc = peerConnections.get(peerId);
                 if (!pc) pc = createPeerConnection(peerId, roomKey, myId);
                 await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.sdp)));
@@ -549,12 +551,14 @@ function startChatSession(roomKey) {
                 pc.candidateQueue = [];
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
+                console.log("📤 Vibe Voice: Sending ANSWER to", peerId);
                 push(ref(db, `_rooms/listening-room:${roomKey}/webrtc/${peerId}`), {
                     senderId: myId,
                     type: 'answer',
                     sdp: JSON.stringify(answer)
                 });
             } else if (msg.type === 'answer') {
+                console.log("📥 Vibe Voice: Received ANSWER from", peerId);
                 const pc = peerConnections.get(peerId);
                 if (pc) {
                     await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.sdp)));
@@ -563,6 +567,7 @@ function startChatSession(roomKey) {
                     pc.candidateQueue = [];
                 }
             } else if (msg.type === 'candidate') {
+                console.log("❄️ Vibe Voice: Received ICE candidate from", peerId);
                 const pc = peerConnections.get(peerId);
                 if (pc) {
                     if (pc.remoteDescriptionSet) {
