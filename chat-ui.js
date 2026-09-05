@@ -21,20 +21,30 @@ function bindVoiceButton() {
         if (isSpeaking) return;
         isSpeaking = true;
         try {
+            console.log("🎙️ Vibe Voice: Requesting getUserMedia...");
             localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log("🎙️ Vibe Voice: Got getUserMedia stream:", localAudioStream.id, "Tracks:", localAudioStream.getAudioTracks().length);
             if (!isSpeaking) {
                 // User released the button while the permission prompt was open
                 localAudioStream.getTracks().forEach(t => t.stop());
                 localAudioStream = null;
                 return;
             }
-            peerConnections.forEach(pc => {
+            let pcsReplaced = 0;
+            peerConnections.forEach((pc, peerId) => {
                 const senders = pc.getSenders();
                 const audioSender = senders.find(s => s.track === null || (s.track && s.track.kind === 'audio'));
                 if (audioSender) {
-                    audioSender.replaceTrack(localAudioStream.getAudioTracks()[0]).catch(err => console.log(err));
+                    console.log("🎙️ Vibe Voice: Replacing track for peer", peerId);
+                    audioSender.replaceTrack(localAudioStream.getAudioTracks()[0])
+                        .then(() => console.log("🎙️ Vibe Voice: Track replaced successfully for", peerId))
+                        .catch(err => console.error("🎙️ Vibe Voice: Replace track failed for", peerId, err));
+                    pcsReplaced++;
+                } else {
+                    console.warn("🎙️ Vibe Voice: No audio sender found for peer", peerId);
                 }
             });
+            console.log("🎙️ Vibe Voice: Replaced tracks for", pcsReplaced, "peers.");
             newBtn.style.filter = "grayscale(0)";
             newBtn.style.transform = "scale(1.2)";
         } catch(err) {
@@ -45,10 +55,13 @@ function bindVoiceButton() {
     
     const stopSpeaking = (e) => {
         e.preventDefault();
+        if (!isSpeaking) return;
+        console.log("🎙️ Vibe Voice: Button released, stopping stream.");
         isSpeaking = false;
         if (localAudioStream) {
             localAudioStream.getTracks().forEach(t => t.stop());
             localAudioStream = null;
+            console.log("🎙️ Vibe Voice: Microphone hardware stopped.");
         }
         newBtn.style.filter = "grayscale(1)";
         newBtn.style.transform = "scale(1)";
@@ -71,6 +84,7 @@ function createPeerConnection(peerId, roomKey, myId) {
     peerConnections.set(peerId, pc);
     
     const transceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
+    console.log("🔌 Vibe Voice: Added transceiver for", peerId, transceiver.mid);
     if (localAudioStream) {
         transceiver.sender.replaceTrack(localAudioStream.getAudioTracks()[0]).catch(e => console.log(e));
     }
@@ -96,6 +110,10 @@ function createPeerConnection(peerId, roomKey, myId) {
             document.body.appendChild(audioEl);
         }
         audioEl.srcObject = e.streams[0];
+        audioEl.onplay = () => console.log("🔊 Vibe Voice: Audio element is PLAYING for", peerId);
+        audioEl.onpause = () => console.log("🔇 Vibe Voice: Audio element PAUSED for", peerId);
+        audioEl.onerror = (err) => console.error("🔇 Vibe Voice: Audio element ERROR for", peerId, err);
+        console.log("🔊 Vibe Voice: srcObject set for", peerId, e.streams[0].id);
     };
     
     pc.oniceconnectionstatechange = () => {
