@@ -1,6 +1,107 @@
 import { ref, push, onChildAdded, onValue, set, serverTimestamp, remove, onDisconnect, onChildRemoved, onChildChanged, update } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
 console.log("Chat UI script loaded!");
 
+let localAudioStream = null;
+const peerConnections = new Map();
+let webrtcUnsub = null;
+const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+async function initLocalAudio() {
+    if (!localAudioStream) {
+        try {
+            localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            localAudioStream.getAudioTracks().forEach(t => t.enabled = false);
+            
+            const voiceBtn = document.getElementById("vibe-voice-btn");
+            if (voiceBtn) {
+                const startSpeaking = (e) => {
+                    e.preventDefault();
+                    if (localAudioStream) {
+                        localAudioStream.getAudioTracks().forEach(t => t.enabled = true);
+                        voiceBtn.style.filter = "grayscale(0)";
+                        voiceBtn.style.transform = "scale(1.2)";
+                    }
+                };
+                const stopSpeaking = (e) => {
+                    e.preventDefault();
+                    if (localAudioStream) {
+                        localAudioStream.getAudioTracks().forEach(t => t.enabled = false);
+                        voiceBtn.style.filter = "grayscale(1)";
+                        voiceBtn.style.transform = "scale(1)";
+                    }
+                };
+                voiceBtn.addEventListener('mousedown', startSpeaking);
+                voiceBtn.addEventListener('mouseup', stopSpeaking);
+                voiceBtn.addEventListener('mouseleave', stopSpeaking);
+                voiceBtn.addEventListener('touchstart', startSpeaking, {passive: false});
+                voiceBtn.addEventListener('touchend', stopSpeaking);
+                voiceBtn.addEventListener('touchcancel', stopSpeaking);
+            }
+        } catch (e) {
+            console.error("Vibe Voice: Mic access denied", e);
+        }
+    }
+}
+
+function createPeerConnection(peerId, roomKey, myId) {
+    const pc = new RTCPeerConnection(rtcConfig);
+    pc.candidateQueue = [];
+    pc.remoteDescriptionSet = false;
+    peerConnections.set(peerId, pc);
+    
+    if (localAudioStream) {
+        localAudioStream.getTracks().forEach(track => pc.addTrack(track, localAudioStream));
+    }
+    
+    pc.onicecandidate = (e) => {
+        if (e.candidate) {
+            push(ref(window.firebaseDatabase, `_rooms/listening-room:${roomKey}/webrtc/${peerId}`), {
+                senderId: myId,
+                type: 'candidate',
+                candidate: JSON.stringify(e.candidate)
+            });
+        }
+    };
+    
+    pc.ontrack = (e) => {
+        let audioEl = document.getElementById('vibe-audio-' + peerId);
+        if (!audioEl) {
+            audioEl = document.createElement('audio');
+            audioEl.id = 'vibe-audio-' + peerId;
+            audioEl.autoplay = true;
+            document.body.appendChild(audioEl);
+        }
+        audioEl.srcObject = e.streams[0];
+    };
+    
+    pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+            pc.close();
+            peerConnections.delete(peerId);
+            const audioEl = document.getElementById('vibe-audio-' + peerId);
+            if (audioEl) audioEl.remove();
+        }
+    };
+    
+    return pc;
+}
+
+function checkAndSendOffer(peerId, roomKey, myId) {
+    if (peerId > myId && !peerConnections.has(peerId)) {
+        const pc = createPeerConnection(peerId, roomKey, myId);
+        pc.createOffer().then(offer => {
+            return pc.setLocalDescription(offer).then(() => {
+                push(ref(window.firebaseDatabase, `_rooms/listening-room:${roomKey}/webrtc/${peerId}`), {
+                    senderId: myId,
+                    type: 'offer',
+                    sdp: JSON.stringify(offer)
+                });
+            });
+        }).catch(e => console.error("Offer error", e));
+    }
+}
+
+
 
 
 
@@ -84,6 +185,8 @@ function initChatUI() {
         <div id="vibe-chat-messages" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; scroll-behavior:smooth;"></div>
         <form id="vibe-chat-form" style="padding:16px; border-top:1px solid rgba(255,255,255,0.1); display:flex; gap:8px; background:rgba(0,0,0,0.2); position:relative;">
             <button type="button" id="vibe-emoji-btn" style="background:transparent; border:none; cursor:pointer; font-size:20px; padding:0 4px; filter:grayscale(0.5); transition:filter 0.2s;">😀</button>
+            
+            <button type="button" id="vibe-voice-btn" style="background:transparent; border:none; cursor:pointer; font-size:20px; padding:0 4px; transition:all 0.2s; filter:grayscale(1); outline:none; user-select:none; -webkit-user-select:none;" title="Hold to Speak">🎙️</button>
             <input type="text" id="vibe-chat-input" placeholder="Say something..." style="flex:1; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:20px; color:white; outline:none; font-family:inherit; font-size:14px; transition:border-color 0.2s;" autocomplete="off" required />
             <button type="submit" style="background:rgba(255,204,0,0.9); color:black; border:none; padding:10px 18px; border-radius:20px; cursor:pointer; font-weight:bold; font-family:inherit; font-size:14px; transition:background 0.2s; box-shadow:0 2px 10px rgba(255,204,0,0.2);">Send</button>
             <div id="vibe-emoji-picker-container" style="display:none; position:absolute; bottom:60px; left:10px; z-index:10000; box-shadow:0 10px 30px rgba(0,0,0,0.5); border-radius:8px; overflow:hidden;"></div>
@@ -409,6 +512,55 @@ function startChatSession(roomKey) {
     if (presenceUnsubscribe) presenceUnsubscribe();
     
     document.getElementById("vibe-chat-messages").innerHTML = "";
+    
+    // WebRTC Setup
+    initLocalAudio();
+    const myId = getStandaloneRoom() ? getStandaloneRoom().selfId : null;
+    if (myId) {
+        if (webrtcUnsub) webrtcUnsub();
+        const sigRef = ref(db, `_rooms/listening-room:${roomKey}/webrtc/${myId}`);
+        remove(sigRef); // clear old signals
+        webrtcUnsub = onChildAdded(sigRef, async (snapshot) => {
+            const msg = snapshot.val();
+            const peerId = msg.senderId;
+            const msgKey = snapshot.key;
+            
+            remove(ref(db, `_rooms/listening-room:${roomKey}/webrtc/${myId}/${msgKey}`));
+            
+            if (msg.type === 'offer') {
+                let pc = peerConnections.get(peerId);
+                if (!pc) pc = createPeerConnection(peerId, roomKey, myId);
+                await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.sdp)));
+                pc.remoteDescriptionSet = true;
+                pc.candidateQueue.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(e=>console.log(e)));
+                pc.candidateQueue = [];
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                push(ref(db, `_rooms/listening-room:${roomKey}/webrtc/${peerId}`), {
+                    senderId: myId,
+                    type: 'answer',
+                    sdp: JSON.stringify(answer)
+                });
+            } else if (msg.type === 'answer') {
+                const pc = peerConnections.get(peerId);
+                if (pc) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.sdp)));
+                    pc.remoteDescriptionSet = true;
+                    pc.candidateQueue.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(e=>console.log(e)));
+                    pc.candidateQueue = [];
+                }
+            } else if (msg.type === 'candidate') {
+                const pc = peerConnections.get(peerId);
+                if (pc) {
+                    if (pc.remoteDescriptionSet) {
+                        pc.addIceCandidate(new RTCIceCandidate(JSON.parse(msg.candidate))).catch(e=>console.log(e));
+                    } else {
+                        pc.candidateQueue.push(JSON.parse(msg.candidate));
+                    }
+                }
+            }
+        });
+    }
     initialMessagesLoaded = false;
     setTimeout(() => { initialMessagesLoaded = true; }, 1000);
     currentRoomKey = roomKey;
@@ -450,6 +602,7 @@ function startChatSession(roomKey) {
         const room = getStandaloneRoom();
         
         if (!activeMembers.has(key)) {
+            checkAndSendOffer(key, roomKey, room ? room.selfId : null);
             activeMembers.add(key);
             if (window.__vibeInitialPresenceLoaded && (!room || key !== room.selfId)) {
                 sendNotification(name + " joined the room", "Say hi!");
@@ -501,6 +654,13 @@ setInterval(() => {
         if (currentRoomKey) {
             if (chatUnsubscribe) chatUnsubscribe();
             if (presenceUnsubscribe) presenceUnsubscribe();
+            if (webrtcUnsub) webrtcUnsub();
+            peerConnections.forEach(pc => pc.close());
+            peerConnections.clear();
+            if (localAudioStream) {
+                localAudioStream.getTracks().forEach(t => t.stop());
+                localAudioStream = null;
+            }
             currentRoomKey = null;
         }
     }
