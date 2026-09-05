@@ -70,8 +70,9 @@ function createPeerConnection(peerId, roomKey, myId) {
     pc.remoteDescriptionSet = false;
     peerConnections.set(peerId, pc);
     
+    const transceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
     if (localAudioStream) {
-        localAudioStream.getTracks().forEach(track => pc.addTrack(track, localAudioStream));
+        transceiver.sender.replaceTrack(localAudioStream.getAudioTracks()[0]).catch(e => console.log(e));
     }
     
     pc.onicecandidate = (e) => {
