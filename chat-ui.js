@@ -132,7 +132,7 @@ let audioInitPromise = null;
 
 function checkAndSendOffer(peerId, roomKey, myId) {
         if (peerId > myId && !peerConnections.has(peerId) && currentRoomKey === roomKey) {
-        const pc = createPeerConnection(peerId, roomKey, myId);
+        const pc = createPeerConnection(peerId, roomKey, myId, true);
         pc.createOffer().then(offer => {
             return pc.setLocalDescription(offer).then(() => {
                 console.log("📤 Vibe Voice: Sending OFFER to", peerId);
