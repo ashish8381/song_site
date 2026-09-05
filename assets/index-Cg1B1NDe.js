@@ -23515,7 +23515,7 @@ function W_() {
             w.jsx("video", {
               className: "scene__img",
               src: "https://github.com/ashish8381/Projects-Details/raw/refs/heads/main/bg2.mp4",
-              poster: "./assets/poster.png",
+              poster: "https://raw.githubusercontent.com/ashish8381/Projects-Details/refs/heads/main/posterrrrr.png",
               preload: "none",
               autoPlay: !0,
               loop: !0,

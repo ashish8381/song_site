@@ -7,11 +7,11 @@ console.log("Chat UI script loaded!");
 function sendNotification(title, body) {
     if (!("Notification" in window)) return;
     if (Notification.permission === "granted") {
-        new Notification(title, { body: body, icon: "/assets/poster.png" });
+        new Notification(title, { body: body, icon: "https://raw.githubusercontent.com/ashish8381/Projects-Details/refs/heads/main/posterrrrr.png" });
     } else if (Notification.permission !== "denied") {
         Notification.requestPermission().then(permission => {
             if (permission === "granted") {
-                new Notification(title, { body: body, icon: "/assets/poster.png" });
+                new Notification(title, { body: body, icon: "https://raw.githubusercontent.com/ashish8381/Projects-Details/refs/heads/main/posterrrrr.png" });
             }
         });
     }
