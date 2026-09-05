@@ -76,17 +76,16 @@ function bindVoiceButton() {
 }
 
 
-function createPeerConnection(peerId, roomKey, myId) {
-    console.log("🔌 Vibe Voice: Creating Peer Connection to", peerId);
+function createPeerConnection(peerId, roomKey, myId, isOfferer) {
+    console.log("🔌 Vibe Voice: Creating Peer Connection to", peerId, "isOfferer:", !!isOfferer);
     const pc = new RTCPeerConnection(rtcConfig);
     pc.candidateQueue = [];
     pc.remoteDescriptionSet = false;
     peerConnections.set(peerId, pc);
     
-    const transceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
-    console.log("🔌 Vibe Voice: Added transceiver for", peerId, transceiver.mid);
-    if (localAudioStream) {
-        transceiver.sender.replaceTrack(localAudioStream.getAudioTracks()[0]).catch(e => console.log(e));
+    if (isOfferer) {
+        const transceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
+        console.log("🔌 Vibe Voice: Added transceiver for", peerId, transceiver.mid);
     }
     
     pc.onicecandidate = (e) => {
@@ -575,11 +574,19 @@ function startChatSession(roomKey) {
             if (msg.type === 'offer') {
                 console.log("📥 Vibe Voice: Received OFFER from", peerId);
                 let pc = peerConnections.get(peerId);
-                if (!pc) pc = createPeerConnection(peerId, roomKey, myId);
+                if (!pc) pc = createPeerConnection(peerId, roomKey, myId, false);
                 await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.sdp)));
                 pc.remoteDescriptionSet = true;
                 pc.candidateQueue.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(e=>console.log(e)));
                 pc.candidateQueue = [];
+                
+                // Force transceiver to sendrecv so we can send audio back!
+                pc.getTransceivers().forEach(t => {
+                    if (t.receiver && t.receiver.track && t.receiver.track.kind === 'audio') {
+                        t.direction = 'sendrecv';
+                    }
+                });
+                
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 console.log("📤 Vibe Voice: Sending ANSWER to", peerId);
