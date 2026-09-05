@@ -6,51 +6,60 @@ const peerConnections = new Map();
 let webrtcUnsub = null;
 const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-async function initLocalAudio() {
-    if (!localAudioStream) {
+let isSpeaking = false;
+function bindVoiceButton() {
+    const voiceBtn = document.getElementById("vibe-voice-btn");
+    if (!voiceBtn) return;
+    
+    // Remove old listeners by cloning
+    const newBtn = voiceBtn.cloneNode(true);
+    voiceBtn.parentNode.replaceChild(newBtn, voiceBtn);
+    
+    const startSpeaking = async (e) => {
+        if (e.type !== 'mousedown' && e.type !== 'touchstart') return; // ignore other events mapping here
+        e.preventDefault();
+        if (isSpeaking) return;
+        isSpeaking = true;
         try {
             localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            localAudioStream.getAudioTracks().forEach(t => t.enabled = false);
-            console.log("🎤 Vibe Voice: Mic access granted and tracks initialized (muted).");
-            
-            // Apply track to any connections established before mic was granted
+            if (!isSpeaking) {
+                // User released the button while the permission prompt was open
+                localAudioStream.getTracks().forEach(t => t.stop());
+                localAudioStream = null;
+                return;
+            }
             peerConnections.forEach(pc => {
                 const senders = pc.getSenders();
                 const audioSender = senders.find(s => s.track === null || (s.track && s.track.kind === 'audio'));
                 if (audioSender) {
-                    audioSender.replaceTrack(localAudioStream.getAudioTracks()[0]).catch(e => console.error("Replace track failed", e));
+                    audioSender.replaceTrack(localAudioStream.getAudioTracks()[0]).catch(err => console.log(err));
                 }
             });
-            
-            const voiceBtn = document.getElementById("vibe-voice-btn");
-            if (voiceBtn) {
-                const startSpeaking = (e) => {
-                    e.preventDefault();
-                    if (localAudioStream) {
-                        localAudioStream.getAudioTracks().forEach(t => t.enabled = true);
-                        voiceBtn.style.filter = "grayscale(0)";
-                        voiceBtn.style.transform = "scale(1.2)";
-                    }
-                };
-                const stopSpeaking = (e) => {
-                    e.preventDefault();
-                    if (localAudioStream) {
-                        localAudioStream.getAudioTracks().forEach(t => t.enabled = false);
-                        voiceBtn.style.filter = "grayscale(1)";
-                        voiceBtn.style.transform = "scale(1)";
-                    }
-                };
-                voiceBtn.addEventListener('mousedown', startSpeaking);
-                voiceBtn.addEventListener('mouseup', stopSpeaking);
-                voiceBtn.addEventListener('mouseleave', stopSpeaking);
-                voiceBtn.addEventListener('touchstart', startSpeaking, {passive: false});
-                voiceBtn.addEventListener('touchend', stopSpeaking);
-                voiceBtn.addEventListener('touchcancel', stopSpeaking);
-            }
-        } catch (e) {
-            console.error("Vibe Voice: Mic access denied", e);
+            newBtn.style.filter = "grayscale(0)";
+            newBtn.style.transform = "scale(1.2)";
+        } catch(err) {
+            console.error("Mic access denied", err);
+            isSpeaking = false;
         }
-    }
+    };
+    
+    const stopSpeaking = (e) => {
+        e.preventDefault();
+        isSpeaking = false;
+        if (localAudioStream) {
+            localAudioStream.getTracks().forEach(t => t.stop());
+            localAudioStream = null;
+        }
+        newBtn.style.filter = "grayscale(1)";
+        newBtn.style.transform = "scale(1)";
+    };
+
+    newBtn.addEventListener('mousedown', startSpeaking);
+    newBtn.addEventListener('mouseup', stopSpeaking);
+    newBtn.addEventListener('mouseleave', stopSpeaking);
+    newBtn.addEventListener('touchstart', startSpeaking, {passive: false});
+    newBtn.addEventListener('touchend', stopSpeaking);
+    newBtn.addEventListener('touchcancel', stopSpeaking);
 }
 
 
@@ -533,7 +542,7 @@ function startChatSession(roomKey) {
     
     // WebRTC Setup
     const myId = getStandaloneRoom() ? getStandaloneRoom().selfId : null;
-    initLocalAudio();
+    bindVoiceButton();
     if (!myId) return;
         if (webrtcUnsub) webrtcUnsub();
         const sigRef = ref(db, `_rooms/listening-room:${roomKey}/webrtc/${myId}`);
