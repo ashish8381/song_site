@@ -6,7 +6,7 @@ const peerConnections = new Map();
 let webrtcUnsub = null;
 const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-async function initLocalAudio() {
+async function _doInitLocalAudio() {
     if (!localAudioStream) {
         try {
             localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -41,6 +41,10 @@ async function initLocalAudio() {
             console.error("Vibe Voice: Mic access denied", e);
         }
     }
+}
+function initLocalAudio() {
+    audioInitPromise = _doInitLocalAudio();
+    return audioInitPromise;
 }
 
 function createPeerConnection(peerId, roomKey, myId) {
@@ -86,8 +90,12 @@ function createPeerConnection(peerId, roomKey, myId) {
     return pc;
 }
 
+let audioInitPromise = null;
+
 function checkAndSendOffer(peerId, roomKey, myId) {
-    if (peerId > myId && !peerConnections.has(peerId)) {
+    if (!audioInitPromise) return; // shouldn't happen
+    audioInitPromise.then(() => {
+        if (peerId > myId && !peerConnections.has(peerId) && currentRoomKey === roomKey) {
         const pc = createPeerConnection(peerId, roomKey, myId);
         pc.createOffer().then(offer => {
             return pc.setLocalDescription(offer).then(() => {
@@ -98,7 +106,8 @@ function checkAndSendOffer(peerId, roomKey, myId) {
                 });
             });
         }).catch(e => console.error("Offer error", e));
-    }
+        }
+    });
 }
 
 
@@ -186,7 +195,7 @@ function initChatUI() {
         <form id="vibe-chat-form" style="padding:16px; border-top:1px solid rgba(255,255,255,0.1); display:flex; gap:8px; background:rgba(0,0,0,0.2); position:relative;">
             <button type="button" id="vibe-emoji-btn" style="background:transparent; border:none; cursor:pointer; font-size:20px; padding:0 4px; filter:grayscale(0.5); transition:filter 0.2s;">😀</button>
             
-            <button type="button" id="vibe-voice-btn" style="background:transparent; border:none; cursor:pointer; font-size:20px; padding:0 4px; transition:all 0.2s; filter:grayscale(1); outline:none; user-select:none; -webkit-user-select:none;" title="Hold to Speak">🎙️</button>
+            <button type="button" id="vibe-voice-btn" style="background:transparent; border:none; cursor:pointer; font-size:20px; padding:0 4px; transition:all 0.2s; filter:grayscale(1); outline:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;" title="Hold to Speak">🎙️</button>
             <input type="text" id="vibe-chat-input" placeholder="Say something..." style="flex:1; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:20px; color:white; outline:none; font-family:inherit; font-size:14px; transition:border-color 0.2s;" autocomplete="off" required />
             <button type="submit" style="background:rgba(255,204,0,0.9); color:black; border:none; padding:10px 18px; border-radius:20px; cursor:pointer; font-weight:bold; font-family:inherit; font-size:14px; transition:background 0.2s; box-shadow:0 2px 10px rgba(255,204,0,0.2);">Send</button>
             <div id="vibe-emoji-picker-container" style="display:none; position:absolute; bottom:60px; left:10px; z-index:10000; box-shadow:0 10px 30px rgba(0,0,0,0.5); border-radius:8px; overflow:hidden;"></div>
@@ -514,9 +523,9 @@ function startChatSession(roomKey) {
     document.getElementById("vibe-chat-messages").innerHTML = "";
     
     // WebRTC Setup
-    initLocalAudio();
     const myId = getStandaloneRoom() ? getStandaloneRoom().selfId : null;
-    if (myId) {
+    initLocalAudio().then(() => {
+        if (!myId || currentRoomKey !== roomKey) return;
         if (webrtcUnsub) webrtcUnsub();
         const sigRef = ref(db, `_rooms/listening-room:${roomKey}/webrtc/${myId}`);
         remove(sigRef); // clear old signals
@@ -560,7 +569,7 @@ function startChatSession(roomKey) {
                 }
             }
         });
-    }
+    });
     initialMessagesLoaded = false;
     setTimeout(() => { initialMessagesLoaded = true; }, 1000);
     currentRoomKey = roomKey;
