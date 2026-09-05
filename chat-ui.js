@@ -534,7 +534,7 @@ function startChatSession(roomKey) {
     // WebRTC Setup
     const myId = getStandaloneRoom() ? getStandaloneRoom().selfId : null;
     initLocalAudio();
-    if (!myId || currentRoomKey !== roomKey) return;
+    if (!myId) return;
         if (webrtcUnsub) webrtcUnsub();
         const sigRef = ref(db, `_rooms/listening-room:${roomKey}/webrtc/${myId}`);
         webrtcUnsub = onChildAdded(sigRef, async (snapshot) => {
