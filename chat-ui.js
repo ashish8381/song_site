@@ -11,6 +11,7 @@ async function _doInitLocalAudio() {
         try {
             localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             localAudioStream.getAudioTracks().forEach(t => t.enabled = false);
+            console.log("🎤 Vibe Voice: Mic access granted and tracks initialized (muted).");
             
             const voiceBtn = document.getElementById("vibe-voice-btn");
             if (voiceBtn) {
@@ -48,6 +49,7 @@ function initLocalAudio() {
 }
 
 function createPeerConnection(peerId, roomKey, myId) {
+    console.log("🔌 Vibe Voice: Creating Peer Connection to", peerId);
     const pc = new RTCPeerConnection(rtcConfig);
     pc.candidateQueue = [];
     pc.remoteDescriptionSet = false;
@@ -68,6 +70,7 @@ function createPeerConnection(peerId, roomKey, myId) {
     };
     
     pc.ontrack = (e) => {
+        console.log("🔊 Vibe Voice: Receiving audio track from", peerId);
         let audioEl = document.getElementById('vibe-audio-' + peerId);
         if (!audioEl) {
             audioEl = document.createElement('audio');
@@ -79,6 +82,7 @@ function createPeerConnection(peerId, roomKey, myId) {
     };
     
     pc.oniceconnectionstatechange = () => {
+        console.log("📶 Vibe Voice: Connection state with", peerId, "changed to:", pc.iceConnectionState);
         if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
             pc.close();
             peerConnections.delete(peerId);
