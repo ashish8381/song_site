@@ -6,12 +6,21 @@ const peerConnections = new Map();
 let webrtcUnsub = null;
 const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-async function _doInitLocalAudio() {
+async function initLocalAudio() {
     if (!localAudioStream) {
         try {
             localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             localAudioStream.getAudioTracks().forEach(t => t.enabled = false);
             console.log("🎤 Vibe Voice: Mic access granted and tracks initialized (muted).");
+            
+            // Apply track to any connections established before mic was granted
+            peerConnections.forEach(pc => {
+                const senders = pc.getSenders();
+                const audioSender = senders.find(s => s.track === null || (s.track && s.track.kind === 'audio'));
+                if (audioSender) {
+                    audioSender.replaceTrack(localAudioStream.getAudioTracks()[0]).catch(e => console.error("Replace track failed", e));
+                }
+            });
             
             const voiceBtn = document.getElementById("vibe-voice-btn");
             if (voiceBtn) {
@@ -43,10 +52,7 @@ async function _doInitLocalAudio() {
         }
     }
 }
-function initLocalAudio() {
-    audioInitPromise = _doInitLocalAudio();
-    return audioInitPromise;
-}
+
 
 function createPeerConnection(peerId, roomKey, myId) {
     console.log("🔌 Vibe Voice: Creating Peer Connection to", peerId);
@@ -98,8 +104,6 @@ function createPeerConnection(peerId, roomKey, myId) {
 let audioInitPromise = null;
 
 function checkAndSendOffer(peerId, roomKey, myId) {
-    if (!audioInitPromise) return; // shouldn't happen
-    audioInitPromise.then(() => {
         if (peerId > myId && !peerConnections.has(peerId) && currentRoomKey === roomKey) {
         const pc = createPeerConnection(peerId, roomKey, myId);
         pc.createOffer().then(offer => {
@@ -113,7 +117,6 @@ function checkAndSendOffer(peerId, roomKey, myId) {
             });
         }).catch(e => console.error("Offer error", e));
         }
-    });
 }
 
 
@@ -530,8 +533,8 @@ function startChatSession(roomKey) {
     
     // WebRTC Setup
     const myId = getStandaloneRoom() ? getStandaloneRoom().selfId : null;
-    initLocalAudio().then(() => {
-        if (!myId || currentRoomKey !== roomKey) return;
+    initLocalAudio();
+    if (!myId || currentRoomKey !== roomKey) return;
         if (webrtcUnsub) webrtcUnsub();
         const sigRef = ref(db, `_rooms/listening-room:${roomKey}/webrtc/${myId}`);
         webrtcUnsub = onChildAdded(sigRef, async (snapshot) => {
@@ -578,7 +581,6 @@ function startChatSession(roomKey) {
                 }
             }
         });
-    });
     initialMessagesLoaded = false;
     setTimeout(() => { initialMessagesLoaded = true; }, 1000);
     currentRoomKey = roomKey;
